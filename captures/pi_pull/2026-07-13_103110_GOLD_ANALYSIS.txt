@@ -1,0 +1,48 @@
+GOLD natural-flow capture analysis
+source: captures/pi_pull/2026-07-13_103110_pi-mitm_natural_payload.log
+size: 167618109
+span_s: 86.6
+duml: 19422
+special_1_01: 0 bit5=0
+gvg_events: 8
+first_video_gt2mbit_s: 1
+dir_bytes: {'IN': 103820, 'OUT': 41426670, 'TXP': 41415251, 'TXG': 103800}
+
+================================================================
+GOLD CAPTURE — NATURAL FLOW LIVE VIDEO (2026-07-13 10:31)
+================================================================
+User visual: LIVE FPV on phone AND goggles through Pi MITM. CONFIRMED.
+
+Capture:
+  captures/pi_pull/2026-07-13_103110_pi-mitm_natural_payload.log  (160MB, ~87s)
+  captures/pi_pull/2026-07-13_103110_pi-mitm_natural_usbproxy.stdout
+
+AOA re-enum (proxy stdout): SUCCESS
+  ACCESSORY_START → DEVICE_LEFT after START → Opened 18d1:2d01 → gadget presents accessory
+
+Bandwidth goggles→app (OUT+TXP): ~7–10 Mbit/s steady from t+1s (peaks ~10 Mbit/s)
+App→goggles control: ~0.01 Mbit/s
+
+Key protocol facts from this WORKING session:
+1. Natural-flow (no pre-trigger) is REQUIRED for live FPV through the bridge.
+2. gvg (cs=0/0xdd) still only appears app→goggles (4 retries), NO goggles response —
+   yet video works. So a DUML gvg ACK is NOT required for FPV (or answer is non-DUML).
+3. cs=0/0x81 and 0x82 ARE answered in the healthy session (app responds "APP" /
+   0x00 to goggles identity probes "ZV900" / "WM1695") — previously 0% on failed bridge.
+4. SPECIAL cs=1/cmd_id=0x01 I-frame packs: ZERO in this capture. Live video flows
+   without the SPECIAL I-frame flush we reverse-engineered from the failed Mini-3-UI
+   session. That path may only matter for recovery / wrong-UI, not steady FPV.
+5. Video transport is NOT classic DUML bulk. Goggles→app bulk frames start with
+   magic 55 CC 4A 57 + LE32 length + high-entropy payload (distinct from AOA
+   control framing 55 CC 30 75). ~15k x 4096B transfers. Annex-B NAL-like sequences
+   appear inside the stream (further peel needed for clean .h264/.h265 extract).
+6. cs=0/0x2a is a file/blackbox channel (/blackbox/...), not video.
+
+Phase B implications:
+  - Emulate AOA accessory with DJI identity strings (already known).
+  - Complete natural goggles-driven AOA (or faithfully replay post-enum accessory).
+  - Answer 0x81/0x82 identity probes.
+  - Receive/deframe 55 CC 4A 57 video frames → decode.
+  - SPECIAL I-frame inject may still help cold-start; not observed in steady state here.
+
+Hypothesis RESOLVED: pre-trigger desynced session; natural-flow unblocks FPV.

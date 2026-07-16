@@ -1,0 +1,59 @@
+[2026-07-03 19:48:11] === Phase 0 recon starting ===
+[2026-07-03 19:48:11] --- dmesg | grep -i rndis (last 50 matching lines) ---
+[  274.531177] rndis_host 1-4:1.0 usb0: register 'rndis_host' at usb-0000:00:14.0-4, RNDIS device, 8e:67:8b:56:17:3b
+[  274.531253] usbcore: registered new interface driver rndis_host
+[  274.541511] rndis_host 1-4:1.0 enx8e678b56173b: renamed from usb0
+[  460.278355] rndis_host 1-4:1.0 enx8e678b56173b: unregister 'rndis_host' usb-0000:00:14.0-4, RNDIS device
+[ 1229.352791] rndis_host 1-4:1.0 usb0: register 'rndis_host' at usb-0000:00:14.0-4, RNDIS device, 2e:80:0f:89:bc:6c
+[ 1229.425636] rndis_host 1-4:1.0 enx2e800f89bc6c: renamed from usb0
+[2026-07-03 19:48:12] --- ip addr (full) ---
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host noprefixroute 
+       valid_lft forever preferred_lft forever
+2: eno2: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc fq_codel state DOWN group default qlen 1000
+    link/ether cc:48:3a:38:63:35 brd ff:ff:ff:ff:ff:ff
+    altname enp0s31f6
+    altname enxcc483a386335
+3: enx803f5d09b62a: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc fq_codel state DOWN group default qlen 1000
+    link/ether 80:3f:5d:09:b6:2a brd ff:ff:ff:ff:ff:ff
+4: wlo1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether cc:d9:ac:d7:ac:a8 brd ff:ff:ff:ff:ff:ff
+    altname wlp0s20f3
+    altname wlxccd9acd7aca8
+    inet 192.168.1.225/24 brd 192.168.1.255 scope global dynamic noprefixroute wlo1
+       valid_lft 85370sec preferred_lft 85370sec
+    inet6 2a0e:cb01:159:1d00:f205:29b6:a03e:6561/64 scope global dynamic mngtmpaddr noprefixroute 
+       valid_lft 347sec preferred_lft 347sec
+    inet6 2a0e:cb01:159:1d00:9e67:4971:1982:66f9/64 scope global temporary dynamic 
+       valid_lft 347sec preferred_lft 347sec
+    inet6 fe80::de3b:322c:477d:4f35/64 scope link noprefixroute 
+       valid_lft forever preferred_lft forever
+6: enx2e800f89bc6c: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UNKNOWN group default qlen 1000
+    link/ether 2e:80:0f:89:bc:6c brd ff:ff:ff:ff:ff:ff
+    inet 192.168.60.1/24 brd 192.168.60.255 scope global dynamic noprefixroute enx2e800f89bc6c
+       valid_lft 863991sec preferred_lft 863991sec
+    inet6 fe80::2e3e:3f87:6c61:318d/64 scope link noprefixroute 
+       valid_lft forever preferred_lft forever
+[2026-07-03 19:48:12] Detected candidate RNDIS interface: enx803f5d09b62a
+[2026-07-03 19:48:12] --- bringing up enx803f5d09b62a ---
+3: enx803f5d09b62a: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc fq_codel state DOWN group default qlen 1000
+    link/ether 80:3f:5d:09:b6:2a brd ff:ff:ff:ff:ff:ff
+[2026-07-03 19:48:13] No DHCP address obtained. Falling back to historical static config: host=192.168.42.3/24
+[2026-07-03 19:48:13] Host IP on enx803f5d09b62a: 192.168.42.3
+[2026-07-03 19:48:13] No goggles IP given — trying historical default 192.168.42.2
+[2026-07-03 19:48:15] Default candidate 192.168.42.2 did not respond to ping. Trying ARP table on enx803f5d09b62a...
+[2026-07-03 19:48:15] Using goggles IP: 192.168.42.2
+[2026-07-03 19:48:15] --- ping check ---
+PING 192.168.42.2 (192.168.42.2) 56(84) bytes of data.
+From 192.168.42.3 icmp_seq=1 Destination Host Unreachable
+From 192.168.42.3 icmp_seq=2 Destination Host Unreachable
+From 192.168.42.3 icmp_seq=3 Destination Host Unreachable
+
+--- 192.168.42.2 ping statistics ---
+3 packets transmitted, 0 received, +3 errors, 100% packet loss, time 2070ms
+pipe 2
+[2026-07-03 19:48:19] (no ping response — continuing to nmap anyway, some devices block ICMP)
+[2026-07-03 19:48:19] --- nmap -p- 192.168.42.2 (full TCP port scan, this can take a few minutes) ---

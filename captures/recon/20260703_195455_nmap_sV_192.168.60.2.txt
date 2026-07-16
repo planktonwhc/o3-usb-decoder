@@ -1,0 +1,1 @@
+# Nmap 7.98 scan initiated Fri Jul  3 19:54:55 2026 as: nmap -sV -Pn -e enx2e800f89bc6c -p 21,1415,8901,8902,8903,8904 -oN /home/ubuntu/o3test/captures/recon/20260703_195455_nmap_sV_192.168.60.2.txt 192.168.60.2

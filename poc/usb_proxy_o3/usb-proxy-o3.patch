@@ -1,0 +1,4 @@
+# This file is historical only and is NOT the apply path anymore.
+# O3 sources are full-file replacements under this directory; install with:
+#   scripts/apply_usb_proxy_o3.sh
+# (base commit a08301d of AristoChen/usb-proxy)

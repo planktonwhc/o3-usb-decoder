@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Editor / local agent state
+.claude/
+.idea/
+.vscode/
+*.swp
+*~
+
+# Scratch analysis dumps
+analysis/dumps/
+*.pcapng.tmp
+
+# DJI Fly APK/native libs — DJI copyrighted binary, reference-only, never publish.
+# Findings live in docs/protocol_notes.md and session closes.
+analysis/dji_fly_apk/
+
+# Built Android sniffer artifacts + local keystore
+poc/aoa_sniffer/build/
+poc/aoa_sniffer/*.apk
+poc/aoa_sniffer/*.apk.idsig
+poc/aoa_sniffer/debug.keystore
+
+# Frida / app-instrumentation research (local lab only — not public tree)
+poc/frida_repack/
+poc/frida_repack/node_modules/
+
+# Vendor phone firmware dump (multi-GB, not project source)
+SAMFW*.zip
+*_fac.zip
+
+# Handover bundles contain DJI .so binaries — keep notes in docs/ only
+handover/
+handover2/
+handover.zip
+handover2.zip
+
+# Large field media / ES dumps (preserve on disk; too heavy for git)
+*.MOV
+*.mov
+*.mp4
+*.h264
+# root-level twin-flight OBS recordings
+/2026-07-14*.mp4
+/DJI_*.MOV
+
+# Captures: keep curated text only in git; bulk/binary/research offline
+captures/aoa/
+captures/aoa_frida*
+captures/*.pcap
+captures/pi_pull/*.h264
+captures/pi_pull/*.mp4
+captures/pi_pull/video_extract/
+captures/pi_pull/*_payload.log
+captures/pi_pull/*_natural_payload.log
+captures/pi_pull/*usbproxy.stdout
+captures/pi_pull/*usbproxy.log
+captures/pi_pull/device-libusb.cpp
+captures/pi_pull/proxy.cpp
+
+# Export / packaging output
+dist/
+dji-o3-usb-decoder-public/
+
+# OS junk
+.DS_Store
+Thumbs.db

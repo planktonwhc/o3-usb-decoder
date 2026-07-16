@@ -1,0 +1,27 @@
+[Unit]
+# Auto-reboot when raw_gadget.ko wedges (D-state / known oops signatures).
+# systemctl restart of o3-hdmi cannot recover that state — only a full reboot.
+# See scripts/o3_oops_watchdog.sh and docs/SESSION_CLOSE_2026-07-15_reliability_resolution_fix.md
+Description=O3 raw_gadget oops watchdog (auto-reboot on kernel wedge)
+Documentation=file:///home/pi/o3test/docs/EVENT_PRODUCTION_QA.md
+After=multi-user.target
+# Independent of o3-hdmi: must keep watching even when the endpoint is dead/D-state.
+
+[Service]
+Type=simple
+User=root
+Environment=O3_REPO=/home/pi/o3test
+Environment=O3_OOPS_REBOOT=1
+Environment=O3_OOPS_POLL_SECS=5
+Environment=O3_OOPS_CONFIRM_SECS=8
+Environment=O3_OOPS_MIN_UPTIME_SECS=45
+Environment=O3_OOPS_LOG_DIR=/var/log/o3
+ExecStart=/home/pi/o3test/scripts/o3_oops_watchdog.sh
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=o3-oops-wd
+
+[Install]
+WantedBy=multi-user.target

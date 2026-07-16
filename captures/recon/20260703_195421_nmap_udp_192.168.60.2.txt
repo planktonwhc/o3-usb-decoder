@@ -1,0 +1,8 @@
+# Nmap 7.98 scan initiated Fri Jul  3 19:54:21 2026 as: nmap -sU -T4 -Pn --top-ports 100 -e enx2e800f89bc6c -oN /home/ubuntu/o3test/captures/recon/20260703_195421_nmap_udp_192.168.60.2.txt 192.168.60.2
+Nmap scan report for 192.168.60.2
+Host is up (0.00052s latency).
+All 100 scanned ports on 192.168.60.2 are in ignored states.
+Not shown: 72 open|filtered udp ports (no-response), 28 closed udp ports (port-unreach)
+MAC Address: EE:4B:E1:DF:4F:F5 (Unknown)
+
+# Nmap done at Fri Jul  3 19:54:50 2026 -- 1 IP address (1 host up) scanned in 28.70 seconds

@@ -1,0 +1,48 @@
+[Unit]
+# Standalone O3 → HDMI: emulate the phone's AOA accessory, pull live H.264 off the
+# goggles, SW-decode (avdec_h264) + atomic-KMS present to micro-HDMI.
+# No phone, no DJI Fly, no license.
+# See poc/pi_endpoint/raw_endpoint.py + atomic_drm_present.py + scripts/o3_hdmi_run.sh.
+Description=DJI O3 standalone video → HDMI (AOA accessory emulator)
+Documentation=file:///home/pi/o3test/poc/pi_endpoint/README.md
+After=multi-user.target systemd-modules-load.service local-fs.target
+Wants=systemd-modules-load.service
+# Cap restart storms (must live in [Unit] on modern systemd).
+StartLimitIntervalSec=120
+StartLimitBurst=8
+
+[Service]
+Type=simple
+User=root
+Environment=O3_REPO=/home/pi/o3test
+Environment=UDC=fe980000.usb
+Environment=DRM_DEVICE=/dev/dri/card1
+# FIELD: single HDMI only. Far micro-HDMI (HDMI-A-2) was the eyes-on good port.
+# Leave near (A-1) unplugged for field. Dual is parked — see docs/DUAL_HDMI_PARKED.md
+# (set DRM_CONNECTOR=auto and O3_DUAL_HDMI=1 only in a dedicated dual session).
+# Player: atomic-KMS (present-per-frame). mpv is retired for field use.
+Environment=DRM_CONNECTOR=HDMI-A-2
+Environment=O3_DUAL_HDMI=0
+Environment=O3_DUAL_MODE=drm
+Environment=O3_HDMI_PLAYER=atomic
+# Idle screen: large DRM splash instead of the Linux text console (owner 2026-07-16).
+# O3_IDLE_SPLASH=0 restores console-on-idle. Text is field-tunable.
+# Quotes required: systemd splits unquoted Environment= values on spaces.
+Environment=O3_IDLE_SPLASH=1
+Environment="O3_IDLE_SPLASH_TEXT=waiting for live FPV feed"
+ExecStart=/home/pi/o3test/scripts/o3_hdmi_run.sh
+# Clean stop: SIGINT so Python finally/close runs. Prefer UNPLUG goggles first
+# (gotcha #4: killing raw-gadget while the host is still attached can oops dwc2).
+KillSignal=SIGINT
+TimeoutStopSec=20
+# On crash / gadget re-init failure, retry. Endpoint stays up across clean
+# goggles unplug/replug (in-process re-arm) so Restart is only a safety net.
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=o3-hdmi
+# Wrapper waits up to 90s for DRM/UDC on cold boot.
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,118 @@
+[*] raw-gadget accessory on fe980000.usb — bring-up: AOA handshake → 2d01
+[*] writing H.264 ES to /home/pi/o3test/captures/pi_pull/2026-07-14_145004_100fps_readtest.h264
+[*] plug goggles into Pi USB-C (VBUS isolated). Ctrl-C to stop.
+[*] CONNECT (mode=normal)
+[*] still waiting for goggles USB video (udc=not attached, mode=normal, es_bytes=0, configured=False) — plug goggles into Pi USB-C (VBUS-isolated); goggles internal video alone does not fill HDMI (note: udc=configured ≠ host present)
+[*] still waiting for goggles USB video (udc=not attached, mode=normal, es_bytes=0, configured=False) — plug goggles into Pi USB-C (VBUS-isolated); goggles internal video alone does not fill HDMI (note: udc=configured ≠ host present)
+[*] still waiting for goggles USB video (udc=not attached, mode=normal, es_bytes=0, configured=False) — plug goggles into Pi USB-C (VBUS-isolated); goggles internal video alone does not fill HDMI (note: udc=configured ≠ host present)
+[*] still waiting for goggles USB video (udc=not attached, mode=normal, es_bytes=0, configured=False) — plug goggles into Pi USB-C (VBUS-isolated); goggles internal video alone does not fill HDMI (note: udc=configured ≠ host present)
+[*] still waiting for goggles USB video (udc=not attached, mode=normal, es_bytes=0, configured=False) — plug goggles into Pi USB-C (VBUS-isolated); goggles internal video alone does not fill HDMI (note: udc=configured ≠ host present)
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=64
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=18
+EP0 rt=0x80 req=0x06 val=0x0200 idx=0x0000 len=9
+EP0 rt=0x80 req=0x06 val=0x0200 idx=0x0000 len=32
+EP0 rt=0x80 req=0x06 val=0x0300 idx=0x0000 len=255
+EP0 rt=0x80 req=0x06 val=0x0302 idx=0x0409 len=255
+EP0 rt=0x80 req=0x06 val=0x0301 idx=0x0409 len=255
+EP0 rt=0x80 req=0x06 val=0x0303 idx=0x0409 len=255
+EP0 rt=0x00 req=0x09 val=0x0001 idx=0x0000 len=0
+SET_CONFIGURATION 1
+endpoints enabled out=1 in=0
+configured in normal mode — awaiting AOA handshake
+EP0 rt=0xc0 req=0x33 val=0x0000 idx=0x0000 len=2
+AOA GET_PROTOCOL → v2
+EP0 rt=0x40 req=0x34 val=0x0000 idx=0x0000 len=4
+AOA SEND_STRING[0] = b'DJI\x00'
+EP0 rt=0x40 req=0x34 val=0x0000 idx=0x0001 len=18
+AOA SEND_STRING[1] = b'com.dji.logiclink\x00'
+EP0 rt=0x40 req=0x34 val=0x0000 idx=0x0002 len=10
+AOA SEND_STRING[2] = b'DJI glass\x00'
+EP0 rt=0x40 req=0x34 val=0x0000 idx=0x0003 len=9
+AOA SEND_STRING[3] = b'v0.0.0.0\x00'
+EP0 rt=0x40 req=0x34 val=0x0000 idx=0x0004 len=12
+AOA SEND_STRING[4] = b'www.dji.com\x00'
+EP0 rt=0x40 req=0x34 val=0x0000 idx=0x0005 len=16
+AOA SEND_STRING[5] = b'000000000000000\x00'
+EP0 rt=0x40 req=0x35 val=0x0000 idx=0x0000 len=0
+[*] AOA ACCESSORY_START — re-enumerating as accessory 18d1:2d01
+[*] re-enumerated; presenting accessory descriptors
+[*] CONNECT (mode=accessory)
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=64
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=18
+EP0 rt=0x80 req=0x06 val=0x0200 idx=0x0000 len=9
+EP0 rt=0x80 req=0x06 val=0x0200 idx=0x0000 len=32
+EP0 rt=0x80 req=0x06 val=0x0300 idx=0x0000 len=255
+EP0 rt=0x80 req=0x06 val=0x0302 idx=0x0409 len=255
+EP0 rt=0x80 req=0x06 val=0x0301 idx=0x0409 len=255
+EP0 rt=0x80 req=0x06 val=0x0303 idx=0x0409 len=255
+EP0 rt=0x00 req=0x09 val=0x0001 idx=0x0000 len=0
+SET_CONFIGURATION 1
+endpoints enabled out=1 in=0
+[*] bulk reader running — waiting for goggles data
+[*] video chunks=0 es_bytes=0 ~0.00 Mbit/s buffered=0 resyncs=0 aoa=1 badlen=0 garb=4074 tx_ok=0 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] replaying gold app→goggles arming burst (218 pkts)
+[*] video chunks=107 es_bytes=162911 ~1.30 Mbit/s buffered=0 resyncs=0 aoa=82 badlen=0 garb=674916 tx_ok=73 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=284 es_bytes=823002 ~5.27 Mbit/s buffered=0 resyncs=0 aoa=162 badlen=0 garb=1575568 tx_ok=150 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=452 es_bytes=1447038 ~4.99 Mbit/s buffered=0 resyncs=0 aoa=217 badlen=0 garb=2336198 tx_ok=198 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] gold arm done (218/218 pkts) — sustaining with light keepalives (23 pkts / ~1s)
+[*] video chunks=641 es_bytes=2136983 ~5.51 Mbit/s buffered=0 resyncs=0 aoa=282 badlen=0 garb=3243165 tx_ok=241 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=817 es_bytes=2788202 ~5.18 Mbit/s buffered=0 resyncs=0 aoa=336 badlen=0 garb=4037951 tx_ok=268 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=995 es_bytes=3427096 ~5.11 Mbit/s buffered=0 resyncs=0 aoa=392 badlen=0 garb=4865414 tx_ok=295 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=1170 es_bytes=4078915 ~5.19 Mbit/s buffered=0 resyncs=0 aoa=447 badlen=0 garb=5659527 tx_ok=322 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=1344 es_bytes=4725027 ~5.17 Mbit/s buffered=0 resyncs=0 aoa=507 badlen=0 garb=6467369 tx_ok=349 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=1505 es_bytes=5330985 ~4.84 Mbit/s buffered=0 resyncs=0 aoa=559 badlen=0 garb=7180501 tx_ok=376 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=1682 es_bytes=5993728 ~5.30 Mbit/s buffered=0 resyncs=0 aoa=616 badlen=0 garb=7980049 tx_ok=403 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=1875 es_bytes=6676694 ~5.46 Mbit/s buffered=0 resyncs=0 aoa=671 badlen=0 garb=8886166 tx_ok=430 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=2058 es_bytes=7320092 ~5.15 Mbit/s buffered=0 resyncs=0 aoa=726 badlen=0 garb=9754287 tx_ok=457 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=2262 es_bytes=8025508 ~5.64 Mbit/s buffered=0 resyncs=0 aoa=785 badlen=0 garb=10744215 tx_ok=484 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] sustain loop 10 (light keepalives)
+[*] video chunks=2446 es_bytes=8695869 ~5.36 Mbit/s buffered=4096 resyncs=0 aoa=840 badlen=0 garb=11589402 tx_ok=511 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=2655 es_bytes=9422501 ~5.81 Mbit/s buffered=0 resyncs=0 aoa=891 badlen=0 garb=12566581 tx_ok=538 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=2865 es_bytes=10173449 ~6.00 Mbit/s buffered=0 resyncs=0 aoa=951 badlen=0 garb=13563313 tx_ok=565 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=3080 es_bytes=10942884 ~6.15 Mbit/s buffered=0 resyncs=0 aoa=1006 badlen=0 garb=14558913 tx_ok=592 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=3284 es_bytes=11652975 ~5.68 Mbit/s buffered=0 resyncs=0 aoa=1061 badlen=0 garb=15527991 tx_ok=619 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=3488 es_bytes=12371380 ~5.75 Mbit/s buffered=4096 resyncs=0 aoa=1116 badlen=0 garb=16488705 tx_ok=645 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=3718 es_bytes=13200430 ~6.63 Mbit/s buffered=0 resyncs=0 aoa=1167 badlen=0 garb=17531334 tx_ok=670 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=3953 es_bytes=14049929 ~6.79 Mbit/s buffered=0 resyncs=0 aoa=1222 badlen=0 garb=18614649 tx_ok=697 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=4178 es_bytes=14837917 ~6.28 Mbit/s buffered=0 resyncs=0 aoa=1280 badlen=0 garb=19694009 tx_ok=724 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=4411 es_bytes=15694285 ~6.82 Mbit/s buffered=4096 resyncs=0 aoa=1331 badlen=0 garb=20737792 tx_ok=751 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] sustain loop 20 (light keepalives)
+[*] video chunks=4595 es_bytes=16365945 ~5.37 Mbit/s buffered=0 resyncs=0 aoa=1388 badlen=0 garb=21589883 tx_ok=778 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=4766 es_bytes=16998766 ~5.05 Mbit/s buffered=0 resyncs=0 aoa=1442 badlen=0 garb=22361987 tx_ok=805 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=4968 es_bytes=17715992 ~5.71 Mbit/s buffered=0 resyncs=0 aoa=1498 badlen=0 garb=23311692 tx_ok=831 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=5144 es_bytes=18350738 ~5.08 Mbit/s buffered=0 resyncs=0 aoa=1553 badlen=0 garb=24131000 tx_ok=857 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=5380 es_bytes=19178081 ~6.62 Mbit/s buffered=0 resyncs=0 aoa=1608 badlen=0 garb=25240675 tx_ok=884 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=5589 es_bytes=19910808 ~5.85 Mbit/s buffered=0 resyncs=0 aoa=1662 badlen=0 garb=26228001 tx_ok=911 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=5749 es_bytes=20494201 ~4.65 Mbit/s buffered=0 resyncs=0 aoa=1718 badlen=0 garb=26971904 tx_ok=935 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=5947 es_bytes=21170585 ~5.39 Mbit/s buffered=4096 resyncs=0 aoa=1771 badlen=0 garb=27917462 tx_ok=961 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=6123 es_bytes=21818699 ~5.18 Mbit/s buffered=0 resyncs=0 aoa=1827 badlen=0 garb=28719378 tx_ok=988 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=6304 es_bytes=22468469 ~5.15 Mbit/s buffered=4096 resyncs=0 aoa=1878 badlen=0 garb=29548375 tx_ok=1010 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=6544 es_bytes=23350061 ~7.05 Mbit/s buffered=0 resyncs=0 aoa=1934 badlen=0 garb=30640610 tx_ok=1036 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] sustain loop 30 (light keepalives)
+[*] video chunks=6765 es_bytes=24137762 ~6.23 Mbit/s buffered=4096 resyncs=0 aoa=1989 badlen=0 garb=31671147 tx_ok=1063 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=6942 es_bytes=24790614 ~5.22 Mbit/s buffered=0 resyncs=0 aoa=2045 badlen=0 garb=32480626 tx_ok=1090 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=7138 es_bytes=25515154 ~5.71 Mbit/s buffered=0 resyncs=0 aoa=2101 badlen=0 garb=33373795 tx_ok=1117 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=7329 es_bytes=26210321 ~5.49 Mbit/s buffered=4096 resyncs=0 aoa=2156 badlen=0 garb=34243272 tx_ok=1144 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=7553 es_bytes=26968781 ~6.07 Mbit/s buffered=0 resyncs=0 aoa=2211 badlen=0 garb=35327599 tx_ok=1171 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=7765 es_bytes=27670897 ~5.54 Mbit/s buffered=4096 resyncs=0 aoa=2266 badlen=0 garb=36370183 tx_ok=1198 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=7991 es_bytes=28419354 ~5.99 Mbit/s buffered=0 resyncs=0 aoa=2324 badlen=0 garb=37488006 tx_ok=1225 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=8216 es_bytes=29156010 ~5.81 Mbit/s buffered=4096 resyncs=0 aoa=2379 badlen=0 garb=38598346 tx_ok=1252 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=8430 es_bytes=29868607 ~5.70 Mbit/s buffered=0 resyncs=0 aoa=2434 badlen=0 garb=39650792 tx_ok=1279 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=8647 es_bytes=30615762 ~5.91 Mbit/s buffered=4096 resyncs=0 aoa=2489 badlen=0 garb=40685161 tx_ok=1306 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] sustain loop 40 (light keepalives)
+[*] video chunks=8830 es_bytes=31282843 ~5.33 Mbit/s buffered=0 resyncs=0 aoa=2545 badlen=0 garb=41533493 tx_ok=1333 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=9038 es_bytes=31976075 ~5.48 Mbit/s buffered=4096 resyncs=0 aoa=2600 badlen=0 garb=42552225 tx_ok=1360 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=9240 es_bytes=32690409 ~5.71 Mbit/s buffered=0 resyncs=0 aoa=2656 badlen=0 garb=43504704 tx_ok=1387 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=9438 es_bytes=33390508 ~5.60 Mbit/s buffered=0 resyncs=0 aoa=2712 badlen=0 garb=44434657 tx_ok=1414 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] video chunks=9635 es_bytes=34094152 ~5.63 Mbit/s buffered=0 resyncs=0 aoa=2768 badlen=0 garb=45361002 tx_ok=1441 tx_fail=0 hdmi_drop=0 drop_tot=0
+[*] event SUSPEND
+host suspend
+ep_in write FAIL 0/0x01: [Errno 11] Resource temporarily unavailable (ok=1459 fail=1 last_attempts=40)
+ep_in write FAIL 0/0x51: [Errno 11] Resource temporarily unavailable (ok=1459 fail=7 last_attempts=40)
+ep_in write FAIL 0/0x01: [Errno 11] Resource temporarily unavailable (ok=1459 fail=12 last_attempts=40)
+ep_in write FAIL 2/0xeb: [Errno 11] Resource temporarily unavailable (ok=1459 fail=18 last_attempts=40)
+ep_in write FAIL 2/0xeb: [Errno 11] Resource temporarily unavailable (ok=1459 fail=23 last_attempts=40)
+ep_in write FAIL 0/0x51: [Errno 11] Resource temporarily unavailable (ok=1459 fail=29 last_attempts=40)
+ep_in write FAIL 0/0x01: [Errno 11] Resource temporarily unavailable (ok=1459 fail=34 last_attempts=40)
+ep_in write FAIL 2/0xeb: [Errno 11] Resource temporarily unavailable (ok=1459 fail=40 last_attempts=40)
+[*] phantom unplug (silent 18s, tx_ok=1459 tx_fail=44, udc=configured) — phantom host (UDC often stays 'configured' with no DISCONNECT); stopping I/O + re-arm for next plug

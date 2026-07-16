@@ -1,0 +1,25 @@
+[*] raw-gadget accessory 18d1:2d01 on fe980000.usb
+[*] writing H.264 ES to /tmp/o3live.h264
+[*] plug goggles into Pi USB-C (VBUS isolated). Ctrl-C to stop.
+[*] CONNECT
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=64
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=18
+EP0 rt=0x80 req=0x06 val=0x0200 idx=0x0000 len=9
+EP0 rt=0x80 req=0x06 val=0x0200 idx=0x0000 len=32
+EP0 rt=0x80 req=0x06 val=0x0300 idx=0x0000 len=255
+EP0 rt=0x80 req=0x06 val=0x0302 idx=0x0409 len=255
+EP0 rt=0x80 req=0x06 val=0x0301 idx=0x0409 len=255
+EP0 rt=0x80 req=0x06 val=0x0303 idx=0x0409 len=255
+EP0 rt=0x00 req=0x09 val=0x0001 idx=0x0000 len=0
+SET_CONFIGURATION 1
+endpoints enabled out=1 in=0
+[*] seeding version-inquiry handshake (gold-derived)
+[*] seed handshake done (21 packets)
+[*] bulk reader running — waiting for goggles data
+ep_read: [Errno 11] Resource temporarily unavailable
+event type=3 len=0
+ep_read: [Errno 11] Resource temporarily unavailable
+event type=3 len=0
+[*] event 6 (reset/disconnect)
+ep_read: [Errno 108] Cannot send after transport endpoint shutdown
+EP0 rt=0x80 req=0x06 val=0x0100 idx=0x0000 len=64

@@ -1,0 +1,55 @@
+dji-o3-usb-decoder
+==================
+
+Copyright (c) 2026 the dji-o3-usb-decoder contributors.
+Licensed under the MIT License — see LICENSE.
+
+Not affiliated with DJI
+----------------------
+This project is an independent interoperability effort. It is **not**
+affiliated with, endorsed by, or sponsored by SZ DJI Technology Co., Ltd. or
+any of its subsidiaries.
+
+"DJI", "O3", "Goggles 2", "DJI Fly", and related names are trademarks of their
+respective owners. They are used here only to describe compatibility with
+hardware and software those owners sell.
+
+What this software does
+-----------------------
+It implements a third-party USB accessory that speaks the Android Open
+Accessory (AOA) path used when DJI Goggles 2 stream live video to a phone
+running DJI Fly. The goal is to display that feed on HDMI from a Raspberry Pi
+without a phone, the DJI Fly app, or a commercial closed-source decoder.
+
+No DJI binaries are redistributed
+--------------------------------
+This repository intentionally does **not** ship:
+
+- DJI Fly APKs or native libraries
+- DJI firmware images
+- Vendor phone firmware dumps
+- Proprietary closed-source decoder binaries from third parties
+
+Protocol behaviour was learned from observing traffic on hardware the authors
+own, and from independently written analysis tools. Runtime code in
+`poc/pi_endpoint/` is original work of this project.
+
+Third-party open-source components
+----------------------------------
+When you build or run this project you may also use software under their own
+licenses, including (non-exhaustive):
+
+- Linux, dwc2, and Raspberry Pi OS components
+- [xairy/raw-gadget](https://github.com/xairy/raw-gadget)
+- [AristoChen/usb-proxy](https://github.com/AristoChen/usb-proxy) (MITM tooling only)
+- GStreamer, FFmpeg/libav, Python, systemd
+
+Install those from their upstream sources. Their licenses apply to those
+components.
+
+Warranty and safety
+-------------------
+This software is experimental. Incorrect USB power wiring (especially missing
+VBUS isolation on the goggles→Pi link) can damage hardware. Stopping the
+raw-gadget service while goggles are still attached can wedge the Pi USB
+controller until reboot. Use at your own risk. See the project README.
