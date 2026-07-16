@@ -129,7 +129,21 @@ by plugging the goggles into an Android phone running DJI Fly and inspecting via
   intent-filter — not yet built, needs a decision with the hardware owner before investing
   the effort.
 
-## ✅ CURRENT STATUS (2026-07-16 evening): **seamless splash ↔ video — owner “solid on both counts”**
+## ✅ CURRENT STATUS (2026-07-16 late): **open-sourced + v0.1.0; runtime still seamless splash**
+
+> **✅ Public:** https://github.com/dr00min/o3-usb-decoder — MIT, tag **`v0.1.0`**.
+> Clean export via `scripts/export_public_tree.sh` (no APKs / Frida / firmware).
+> Full arc: `docs/SESSION_CLOSE_2026-07-16_open_source.md`.
+>
+> **✅ Docs:** out-of-box Pi README; `install_hdmi_service.sh` installs python-gi;
+> field Pi is **2GB** (not 8GB).
+>
+> **Runtime (unchanged this session):** seamless splash ↔ video, owner “solid on both
+> counts” — see PRIOR STATUS below / `docs/SESSION_CLOSE_2026-07-16_seamless_splash.md`.
+>
+> **Still open:** **5m soak** with cool drone (`sudo o3_soak.sh` → `RESULT: PASS`).
+
+## PRIOR STATUS (2026-07-16 evening): **seamless splash ↔ video — owner “solid on both counts”**
 
 > **✅ Owner-confirmed:** no Linux console flash on **live → drone-off → splash**,
 > **splash → USB plug → live**, or **splash → drone re-power → live**.
@@ -144,7 +158,6 @@ by plugging the goggles into an Android phone running DJI Fly and inspecting via
 >
 > Key files: `atomic_drm_present.py`, `raw_endpoint.py`, `idle_splash.py`.
 > Full arc: `docs/SESSION_CLOSE_2026-07-16_seamless_splash.md`.
-> **Still open:** **5m soak** with cool drone (`sudo o3_soak.sh` → `RESULT: PASS`).
 
 ## PRIOR STATUS (2026-07-16): **idle splash DONE — owner-confirmed + Pi rebooted**
 
@@ -434,19 +447,22 @@ sudo modprobe usbmon
 Python analysis: prefer `scapy` / `pyshark` for pcap parsing. `ffplay` (from ffmpeg) for stream validation.
 
 ## Immediate next tasks (for next agent / session)
-**Handoff:** `docs/SESSION_CLOSE_2026-07-16_seamless_splash.md` ← **read first**.
+**Handoff:** `docs/SESSION_CLOSE_2026-07-16_open_source.md` ← **read first**  
+(runtime detail: `docs/SESSION_CLOSE_2026-07-16_seamless_splash.md`).
 
-1. **#1 ✅ DONE — Seamless splash ↔ video** (owner “solid on both counts”, 2026-07-16 evening).
-2. **#2 `o3_soak.sh` 5m PASS** (still open — needs cool drone continuous stream):
+1. **#1 ✅ DONE — Open source** public repo + `v0.1.0` (2026-07-16 late).
+2. **#2 ✅ DONE — Seamless splash ↔ video** (owner “solid on both counts”).
+3. **#3 `o3_soak.sh` 5m PASS** (still open — needs cool drone continuous stream):
    ```bash
    ssh pi@192.168.1.57
    # air unit ON, goggles plugged, live HDMI good, cool drone:
    sudo ~/o3test/scripts/o3_soak.sh
    cat /var/log/o3/soak_*/summary.txt   # want RESULT: PASS
    ```
-3. ✅ DONE earlier: idle splash; hot-swap; event_health; oops WD; atomic default.
-4. Backlog: dual-CRTC; re-stream; packaging; 1440×1080 root cause curiosity; long-idle stale
-   endpoint re-arm on real plug.
+4. ✅ DONE earlier: idle splash; hot-swap; event_health; oops WD; atomic default; Pi README.
+5. Public updates after monorepo fixes: `scripts/export_public_tree.sh` → push
+   `dr00min/o3-usb-decoder` (see `docs/OPEN_SOURCE.md`).
+6. Backlog: dual-CRTC; re-stream; arming trim; optional SD image if demand; 1440×1080 curiosity.
 
 **Gotchas (atomic path):** decode is now **SW** (`avdec_h264`, not `v4l2h264dec` — HW decode was
 dropped 2026-07-15, it reconstructs chroma wrong at high-contrast edges, see status above); new
@@ -496,5 +512,6 @@ Event hardening backlog: `docs/EVENT_PRODUCTION_QA.md`.
 - Laptop/dev: Dell Latitude 5510, Ubuntu (USB boot), SATA **AHCI**.
 - Deployment: **Raspberry Pi 4 Model B 2GB** (`o3pi.local` / LAN), user `pi`, passwordless sudo.
   (Ordered as 8GB; wrong item arrived — 2GB is the field-proven unit.)
-- Target: DJI Goggles 2 + O3 air unit. HDMI monitor on **HDMI-A-1**.
+- Target: DJI Goggles 2 + O3 air unit. HDMI monitor on **HDMI-A-2** (far; shipping default).
+- Public: https://github.com/dr00min/o3-usb-decoder (MIT, `v0.1.0`).
 - Capture phone (Phase A, optional now): rooted Android + DJI Fly.
