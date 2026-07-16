@@ -8,7 +8,7 @@ until someone reports success.
 
 | Piece | Value |
 |---|---|
-| Host computer | **Raspberry Pi 4 Model B** (8GB tested; 4GB should work) |
+| Host computer | **Raspberry Pi 4 Model B** (**2GB** field unit — confirmed working; more RAM fine) |
 | OS | Raspberry Pi OS **64-bit Bookworm** (Lite or Desktop) |
 | USB role | Pi USB-C as **gadget** (`dtoverlay=dwc2,dr_mode=peripheral`) |
 | Gadget stack | **raw-gadget** (`/dev/raw-gadget`), UDC `fe980000.usb` |

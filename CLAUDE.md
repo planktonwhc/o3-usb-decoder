@@ -266,7 +266,7 @@ by plugging the goggles into an Android phone running DJI Fly and inspecting via
 > **`docs/SESSION_CLOSE_2026-07-14_atomic_presenter_built.md`**. mpv 50fps below remains the
 > shipping baseline/fallback.
 
-**What works on hardware (`o3pi` / `192.168.1.57`, Pi 4 Model B 8GB):**
+**What works on hardware (`o3pi` / `192.168.1.57`, Pi 4 Model B **2GB**):**
 - Goggles (USB host) → Pi dwc2 raw-gadget (AOA accessory) → deframe `55 CC 4A 57` →
   **H.264 High 1920×1080** live USB **~50 AU/s** (not 60), ~5–8 Mbit/s ES.
 - **No phone, no DJI Fly.** Continuous past the ~40s watchdog.
@@ -494,6 +494,7 @@ Event hardening backlog: `docs/EVENT_PRODUCTION_QA.md`.
 
 ## Environment
 - Laptop/dev: Dell Latitude 5510, Ubuntu (USB boot), SATA **AHCI**.
-- Deployment: **Raspberry Pi 4 Model B 8GB** (`o3pi.local` / LAN), user `pi`, passwordless sudo.
+- Deployment: **Raspberry Pi 4 Model B 2GB** (`o3pi.local` / LAN), user `pi`, passwordless sudo.
+  (Ordered as 8GB; wrong item arrived — 2GB is the field-proven unit.)
 - Target: DJI Goggles 2 + O3 air unit. HDMI monitor on **HDMI-A-1**.
 - Capture phone (Phase A, optional now): rooted Android + DJI Fly.

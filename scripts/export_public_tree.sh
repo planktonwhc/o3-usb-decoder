@@ -27,8 +27,13 @@ done
 
 # rsync filter: first match wins. Include shipping + docs + analysis tools;
 # exclude research dumps and third-party binaries.
+# Protect destination .git from --delete (export often reuses an existing clone).
 FILTER=(
-  # --- never ---
+  # --- protect public repo metadata ---
+  --filter 'P .git'
+  --filter 'P .git/***'
+
+  # --- never copy from monorepo ---
   --exclude '.git/'
   --exclude '.venv/'
   --exclude '.claude/'
@@ -116,8 +121,10 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
 fi
 
 mkdir -p "$OUT"
-# Delete stale public-only files when re-exporting (keeps OUT a pure mirror of the filter).
-rsync -a --delete --delete-excluded "${FILTER[@]}" "$REPO/" "$OUT/"
+# Delete stale public tree files when re-exporting. Do NOT use --delete-excluded:
+# that would wipe destination .git (which is excluded from the monorepo copy).
+# Destination .git is protected via --filter 'P .git' above.
+rsync -a --delete "${FILTER[@]}" "$REPO/" "$OUT/"
 
 # Sanity: refuse to ship obvious proprietary / bulk blobs.
 bad=0

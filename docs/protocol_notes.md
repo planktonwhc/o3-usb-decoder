@@ -824,7 +824,8 @@ capture that command is the enabling step.
   `scripts/apply_usb_proxy_o3.sh`, `scripts/phaseA_capture.sh` (default = natural;
   `--pretrigger` keeps the old recipe). **Validated on hardware same day — see GOLD entry above.**
 - 2026-07-10 (PIVOT to Pi-4 USB MITM — prep staged, hardware inbound): hardware owner
-  bought a Raspberry Pi 4 Model B 8GB and directed a full pivot to the Pi as the
+  bought a Raspberry Pi 4 Model B (field unit turned out **2GB** after a wrong-item
+  delivery; works) and directed a full pivot to the Pi as the
   man-in-the-middle. Rationale is the convergence of every prior dead-end: the live-view
   trigger is not statically extractable (runtime-bound transmit), the live cmd_id space
   is exhausted (0x06-0xFF) with the low range blocked, and on-phone Frida is beaten by

@@ -1,6 +1,6 @@
 # Raspberry Pi 4 as a USB MITM for DJI O3 — setup & capture runbook
 
-**This is the step-by-step to follow when the Pi 4 (8GB) arrives.** It has two phases:
+**This is the step-by-step to follow when the Pi 4 arrives.** It has two phases:
 
 - **Phase A — capture the trigger (needs the phone).** Put the Pi *between* the goggles
   and the phone running DJI Fly, and record the raw USB traffic. This finally captures
@@ -50,7 +50,7 @@ attempt — cannot see it. The Pi sidesteps the exact wall we've been stuck on.
 
 | Item | Notes |
 |---|---|
-| Raspberry Pi 4 Model B 8GB | ✅ ordered |
+| Raspberry Pi 4 Model B | ✅ field unit is **2GB** (ordered 8GB; wrong item arrived — 2GB works) |
 | microSD card, 16GB+ (A1/A2, decent brand) | OS + captures. 32GB comfortable. |
 | **Case + cooling** — chosen: **GeeekPi acrylic case + 30mm fan + 4 heatsinks + bundled 5V/3.6A USB-C PSU** | Open acrylic layers → **full GPIO access** (easier than the P232's ribbon slot). Simple **2-pin fan (red=5V, black=GND)** + the 4 heatsinks = all-day active cooling. Fan wiring in §4. The bundled PSU is the **first-boot/bench** supply (see §1). The old P232 is now spare / backup bench box. |
 | **Pi power — GPIO via a PD trigger** — chosen: **Adafruit HUSB238** (switchable) + a **2-pin DuPont pigtail** | USB-C is the goggles data link, so power the Pi via **GPIO pin 4 (5V) + pin 6 (GND)**. Chain: `USB-C PD source → HUSB238 (DIP set to 5V, tape the switch) → its 2-pin screw terminal → pigtail → GPIO 4/6`. The HUSB238's USB-C input is the common port. **No barrel, no breakout, no fuse** (rely on the PD source's built-in OCP/SCP). |

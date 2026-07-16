@@ -47,7 +47,7 @@ steps in order. Total time is roughly one evening once the parts are on the desk
 
 | Item | Notes |
 |---|---|
-| **Raspberry Pi 4 Model B** | 4GB works; **8GB** is what we run. |
+| **Raspberry Pi 4 Model B** | Field unit is **2GB** (works). Higher RAM is fine; not required. |
 | **microSD 16GB+** | 32GB comfortable. Decent A1/A2 brand. |
 | **Case + cooling** | Fan + heatsinks recommended for all-day SW decode. |
 | **Pi power (not USB-C data)** | GPIO 5V (or PoE). Official USB-C PSU is OK **only until** goggles are plugged. |
