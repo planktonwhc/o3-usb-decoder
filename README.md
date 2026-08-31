@@ -388,6 +388,41 @@ Endpoint-level notes: [`poc/pi_endpoint/README.md`](poc/pi_endpoint/README.md).
 This work is interoperability on hardware we own: reading our own drone’s video
 feed on our own machines.
 
+## Built units
+
+The software here is free and always will be. If you would rather not flash a
+Pi, solder a power feed and chase down a VBUS isolator, I build and test these
+to order.
+
+**What you get:** a Pi 4 running this code — flashed, assembled, soak-tested —
+with the isolated goggles cable and the power side already sorted. Plug it in,
+get dual HDMI.
+
+**What it does NOT do. Read this before asking.**
+
+| | |
+|---|---|
+| Goggles | **DJI Goggles 2 only.** Not V1/V2, Integra, Goggles 3 or N3 |
+| Air unit | **O3 Air Unit only.** Not O4 / O4 Pro |
+| Output | Two micro-HDMI, same feed, 1080p-class, typically ~50 fps |
+| Network restream | **No.** No RTSP, SRT, RTMP, RTP, NDI |
+| Telemetry overlay | **No** |
+| Recording | **No** |
+| Camera settings from the box | **No** |
+
+Live USB video runs ~5–8 Mbit/s — visibly softer than the goggles' own DVR
+recording. That is the protocol ceiling, not the build.
+
+Arming replays a captured DJI Fly session. **A DJI firmware update can break it
+without warning.** I will fix it when I can. There is no SLA.
+
+**Not taking orders yet** — open an issue saying which goggles and air unit you
+have, and I will tell you the price and lead time when I have them.
+
+If you want the things above marked "No", buy CosmoStreamer. It does all of them
+and it is a good product. This is the open, narrower one.
+
+
 ## License
 
 [MIT](LICENSE) — see also [`NOTICE`](NOTICE) (trademarks, third-party components, no warranty).
