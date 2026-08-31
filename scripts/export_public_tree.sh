@@ -71,13 +71,19 @@ FILTER=(
   --exclude 'captures/pi_pull/proxy.cpp'
   --exclude 'dist/'
   --exclude 'dji-o3-usb-decoder-public/'
+  # Lab operator diary / Grok session handoff — not the public product
+  --exclude 'CLAUDE.md'
+  --exclude 'docs/GROK_STATE.md'
+  --exclude 'docs/grok-recommends.md'
+  --exclude 'docs/SESSION_CLOSE_2026-08-27_grok_recommend.md'
+  --exclude 'docs/SESSION_CLOSE_2026-08-22_hw_nv12_built_falsified.md'
+  --exclude 'docs/SESSION_CLOSE_2026-08-22_layout_fix_lag_fix_nv12_lead.md'
 
   # --- always include curated roots ---
   --include '/LICENSE'
   --include '/NOTICE'
   --include '/README.md'
   --include '/CONTRIBUTING.md'
-  --include '/CLAUDE.md'
   --include '/.gitignore'
   --include '/analysis/'
   --include '/analysis/***'
@@ -125,6 +131,20 @@ mkdir -p "$OUT"
 # that would wipe destination .git (which is excluded from the monorepo copy).
 # Destination .git is protected via --filter 'P .git' above.
 rsync -a --delete "${FILTER[@]}" "$REPO/" "$OUT/"
+
+# --delete does not remove dest files that are --exclude'd (and we must not
+# --delete-excluded, or destination .git would go). Drop lab leftovers that
+# older public snapshots shipped.
+for leftover in \
+  CLAUDE.md \
+  docs/GROK_STATE.md \
+  docs/grok-recommends.md \
+  docs/SESSION_CLOSE_2026-08-27_grok_recommend.md \
+  docs/SESSION_CLOSE_2026-08-22_hw_nv12_built_falsified.md \
+  docs/SESSION_CLOSE_2026-08-22_layout_fix_lag_fix_nv12_lead.md
+do
+  rm -f "$OUT/$leftover"
+done
 
 # Sanity: refuse to ship obvious proprietary / bulk blobs.
 bad=0

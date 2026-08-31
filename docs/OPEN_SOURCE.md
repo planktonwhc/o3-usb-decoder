@@ -19,6 +19,7 @@ third-party copyrighted blobs or multi-GB research dumps.
 | `analysis/*.py` (no APK trees) | `handover/`, `handover2/`, `*.zip` phone firmware |
 | `scripts/` install and ops | `poc/frida_repack/` (app instrumentation research) |
 | Curated `docs/` (protocol, field, session closes) | Raw Frida/logcat dumps under `captures/aoa/` |
+| | `CLAUDE.md`, `docs/GROK_STATE.md` (lab / agent diary) |
 | `poc/pi_mitm/`, `poc/usb_proxy_o3/`, `poc/aoa_sniffer` **source** | Built `*.apk`, keystores, `node_modules/` |
 | `poc/replay.py` | Large `*.h264` / `*.mp4` / `*.MOV` field media |
 | `LICENSE`, `NOTICE`, `README.md`, `CONTRIBUTING.md` | Local `.venv/`, agent state |

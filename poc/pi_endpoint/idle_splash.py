@@ -20,7 +20,8 @@ Rules (compatible with the 2026-07-14 atomic presenter discipline):
 
 Env / CLI:
   DRM_DEVICE          default /dev/dri/card1
-  DRM_CONNECTOR       default HDMI-A-2 (or 'auto' = first connected HDMI-A-*)
+  DRM_CONNECTOR       HDMI-A-2 | HDMI-A-1,HDMI-A-2 | auto
+                      (auto = first connected; comma list = multi same-FB splash)
   O3_IDLE_SPLASH_TEXT default "waiting for live FPV feed"
 """
 
@@ -265,7 +266,7 @@ def paint_splash(
 class IdleSplash:
     def __init__(self, device: str, connector_name: str | None, text: str):
         self.device = device
-        self.connector_name = connector_name  # None = first connected HDMI-A-*
+        self.connector_name = connector_name  # None/auto = first; comma list = multi
         self.text = text
         self.fd = -1
         self.lib = ddm.LibDrm().lib
@@ -335,13 +336,31 @@ class IdleSplash:
                 pass
             self._handle = 0
 
-    def _pick_target(self):
+    def _parse_want(self) -> list[str] | None:
+        """None = first connected HDMI only; list = explicit multi (or single)."""
+        spec = self.connector_name
+        if spec is None:
+            return None
+        s = str(spec).strip()
+        if not s or s.lower() in ("auto", "any", "*"):
+            return None
+        parts = [p.strip() for p in s.split(",") if p.strip()]
+        return parts or None
+
+    def _pick_targets(self) -> list[tuple]:
+        """Return list of (conn_id, crtc_id, mode, name) for splash outputs.
+
+        Explicit comma list → all matching connected ports (distinct CRTCs).
+        auto / None → first connected HDMI-A only (single-port field path).
+        """
+        want = self._parse_want()
         res_p = self.lib.drmModeGetResources(self.fd)
         if not res_p:
             raise OSError("drmModeGetResources failed")
         res = ctypes.cast(res_p, ctypes.POINTER(ddm.drmModeRes)).contents
         crtc_ids = [res.crtcs[i] for i in range(res.count_crtcs)]
-        chosen = None
+        used: set[int] = set()
+        found: list[tuple] = []
         for i in range(res.count_connectors):
             conn_id = res.connectors[i]
             conn_p = self.lib.drmModeGetConnector(self.fd, conn_id)
@@ -352,20 +371,50 @@ class IdleSplash:
             if conn.connector_type == DRM_MODE_CONNECTOR_HDMIA:
                 name = f"HDMI-A-{conn.connector_type_id}"
             connected = conn.connection == ddm.DRM_MODE_CONNECTED and conn.count_modes > 0
-            want = (self.connector_name is None) or (name == self.connector_name)
-            if connected and want and chosen is None:
-                modes = [conn.modes[j] for j in range(conn.count_modes)]
-                mode = ddm.pick_mode(modes, 1920, 1080)
-                crtc_id = self._crtc_for(conn, crtc_ids)
-                if crtc_id and mode is not None:
-                    chosen = (conn_id, crtc_id, mode, name)
+            if want is None:
+                match = connected and conn.connector_type == DRM_MODE_CONNECTOR_HDMIA
+            else:
+                match = connected and name in want
+            if not match:
+                self.lib.drmModeFreeConnector(conn_p)
+                continue
+            modes = [conn.modes[j] for j in range(conn.count_modes)]
+            mode = ddm.pick_mode(modes, 1920, 1080)
+            crtc_id = self._crtc_for(conn, crtc_ids, used)
+            if crtc_id and mode is not None:
+                used.add(crtc_id)
+                found.append((conn_id, crtc_id, mode, name))
+                if want is None:
+                    self.lib.drmModeFreeConnector(conn_p)
+                    break
             self.lib.drmModeFreeConnector(conn_p)
         self.lib.drmModeFreeResources(res_p)
-        return chosen
+        if want is not None and found:
+            by_name = {t[3]: t for t in found}
+            ordered = [by_name[n] for n in want if n in by_name]
+            if ordered:
+                found = ordered
+        if len(found) > 1:
+            dims = {(int(t[2].hdisplay), int(t[2].vdisplay)) for t in found}
+            if len(dims) > 1:
+                preferred = next((t for t in found if t[3] == "HDMI-A-2"), found[0])
+                log(f"multi splash refused (mismatched modes) — using {preferred[3]} only")
+                found = [preferred]
+        return found
 
-    def _crtc_for(self, conn, crtc_ids: list[int]) -> int:
+    def _crtc_for(self, conn, crtc_ids: list[int], used: set[int] | None = None) -> int:
         """Pick a free CRTC for this connector. Capture fields *before* FreeEncoder
         (use-after-free on enc.crtc_id produced garbage ids → SetCrtc -ENOENT)."""
+        used = used or set()
+
+        def _pick(possible: int, preferred: int = 0) -> int:
+            if preferred and preferred not in used and preferred in crtc_ids:
+                return preferred
+            for bit, cid in enumerate(crtc_ids):
+                if (possible & (1 << bit)) and cid not in used:
+                    return int(cid)
+            return 0
+
         if conn.encoder_id:
             enc_p = self.lib.drmModeGetEncoder(self.fd, conn.encoder_id)
             if enc_p:
@@ -373,11 +422,9 @@ class IdleSplash:
                 crtc_id = int(enc.crtc_id)
                 possible = int(enc.possible_crtcs)
                 self.lib.drmModeFreeEncoder(enc_p)
-                if crtc_id:
-                    return crtc_id
-                for bit, cid in enumerate(crtc_ids):
-                    if possible & (1 << bit):
-                        return int(cid)
+                picked = _pick(possible, crtc_id)
+                if picked:
+                    return picked
         for ei in range(conn.count_encoders):
             e2 = conn.encoders[ei]
             enc_p = self.lib.drmModeGetEncoder(self.fd, e2)
@@ -386,18 +433,21 @@ class IdleSplash:
             enc = ctypes.cast(enc_p, ctypes.POINTER(ddm.drmModeEncoder)).contents
             possible = int(enc.possible_crtcs)
             self.lib.drmModeFreeEncoder(enc_p)
-            for bit, cid in enumerate(crtc_ids):
-                if possible & (1 << bit):
-                    return int(cid)
-        return int(crtc_ids[0]) if crtc_ids else 0
+            picked = _pick(possible)
+            if picked:
+                return picked
+        for cid in crtc_ids:
+            if cid not in used:
+                return int(cid)
+        return 0
 
     def show(self) -> bool:
-        """Modeset splash once. Returns True if the frame is up."""
-        target = self._pick_target()
-        if target is None:
+        """Modeset splash once (all requested outputs). Returns True if up."""
+        targets = self._pick_targets()
+        if not targets:
             return False
-        conn_id, crtc_id, mode, name = target
-        w, h = int(mode.hdisplay), int(mode.vdisplay)
+        _cid0, _crtc0, mode0, _n0 = targets[0]
+        w, h = int(mode0.hdisplay), int(mode0.vdisplay)
         creq = ddm.drm_mode_create_dumb(height=h, width=w, bpp=32, flags=0)
         fcntl.ioctl(self.fd, ddm.DRM_IOCTL_MODE_CREATE_DUMB, creq)
         self._handle = creq.handle
@@ -420,33 +470,35 @@ class IdleSplash:
             prot=mmap.PROT_READ | mmap.PROT_WRITE, offset=mreq.offset,
         )
         paint_splash(self._map, pitch, w, h, self.text)
-        # Modeset while still master; steal the CRTC from fbcon *before* unbinding
-        # vtconsole (unbinding first left SetCrtc returning -ENOENT in field).
-        conn_arr = (ctypes.c_uint32 * 1)(conn_id)
-        # Ensure mode is a durable copy (pick_mode already copies, but be explicit).
-        mode_copy = ddm.copy_mode(mode)
-        r = self.lib.drmModeSetCrtc(
-            self.fd, crtc_id, self._fb_id, 0, 0,
-            conn_arr, 1, ctypes.byref(mode_copy),
-        )
-        if r != 0:
-            # Retry once after DropMaster/SetMaster — another client may have raced.
-            try:
-                self.lib.drmDropMaster(self.fd)
-            except Exception:
-                pass
-            time.sleep(0.05)
-            self.lib.drmSetMaster(self.fd)
-            r = self.lib.drmModeSetCrtc(
+        ok = 0
+        names: list[str] = []
+        for conn_id, crtc_id, mode, name in targets:
+            conn_arr = (ctypes.c_uint32 * 1)(conn_id)
+            mode_copy = ddm.copy_mode(mode)
+            rr = self.lib.drmModeSetCrtc(
                 self.fd, crtc_id, self._fb_id, 0, 0,
                 conn_arr, 1, ctypes.byref(mode_copy),
             )
-        if r != 0:
-            raise OSError(f"drmModeSetCrtc failed ({r})")
+            if rr != 0:
+                try:
+                    self.lib.drmDropMaster(self.fd)
+                except Exception:
+                    pass
+                time.sleep(0.05)
+                self.lib.drmSetMaster(self.fd)
+                rr = self.lib.drmModeSetCrtc(
+                    self.fd, crtc_id, self._fb_id, 0, 0,
+                    conn_arr, 1, ctypes.byref(mode_copy),
+                )
+            if rr != 0:
+                log(f"SetCrtc failed on {name} ({rr})")
+            else:
+                ok += 1
+                names.append(name)
+        if ok == 0:
+            raise OSError("drmModeSetCrtc failed on all splash outputs")
         _unbind_vtconsole()
-        log(f"showing on {name}: {w}x{h} text={self.text!r}")
-        # Parent (HdmiPlayer) waits on stdout for this token before considering
-        # the handoff complete — keep it exact, single line, no prefix.
+        log(f"showing on {', '.join(names)}: {w}x{h} text={self.text!r}")
         print("READY", flush=True)
         return True
 
@@ -462,7 +514,7 @@ def main() -> int:
     ap.add_argument(
         "--connector",
         default=os.environ.get("DRM_CONNECTOR", "HDMI-A-2"),
-        help="HDMI-A-N or 'auto' for first connected HDMI-A-*",
+        help="HDMI-A-N, comma list for dual, or auto = first connected",
     )
     ap.add_argument(
         "--text",

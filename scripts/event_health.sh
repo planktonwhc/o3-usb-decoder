@@ -122,9 +122,32 @@ fi
 
 if [[ -e /sys/class/udc/$UDC ]]; then
   udc_st="$(cat /sys/class/udc/$UDC/state 2>/dev/null || echo '?')"
-  add ok udc "$UDC state=$udc_st"
+  # UDC alone is never a host-present proof — annotate phantom risk.
+  if [[ "$udc_st" == "configured" ]]; then
+    add ok udc "$UDC state=configured (≠ host present; phantom after unplug is common)"
+  else
+    add ok udc "$UDC state=$udc_st"
+  fi
 else
   add crit udc "$UDC missing"
+fi
+
+# 3b) multi-signal host presence (never UDC alone)
+if [[ -x "$REPO/scripts/o3_host_probe.sh" ]]; then
+  set +e
+  host_json="$("$REPO/scripts/o3_host_probe.sh" --json 2>/dev/null)"
+  host_rc=$?
+  set -e
+  host_verdict="$(printf '%s' "$host_json" | sed -n 's/.*"verdict":"\([^"]*\)".*/\1/p' | head -1)"
+  host_verdict="${host_verdict:-?}"
+  case "$host_rc" in
+    0) add ok host-probe "SAFE_STOP ($host_verdict) — ok to safe_stop/restart" ;;
+    1) add warn host-probe "LIVE_HOST — unplug before stop/restart (gotcha #4)" ;;
+    2) add ok host-probe "UNCERTAIN — prefer safe_stop; do not refuse on UDC alone" ;;
+    *) add warn host-probe "probe exit=$host_rc verdict=$host_verdict" ;;
+  esac
+else
+  add warn host-probe "o3_host_probe.sh missing — install scripts from repo"
 fi
 
 # 4) DRM / monitor
@@ -236,11 +259,14 @@ fi
 # 7) recent journal health (best-effort)
 if command -v journalctl >/dev/null 2>&1; then
   jn="$(journalctl -u o3-hdmi -n 80 --no-pager -o cat 2>/dev/null || true)"
-  if echo "$jn" | grep -Eq 'STALL:|pipeline ERROR|drmModeSetCrtc \(initial modeset\) failed|initial modeset kept failing'; then
-    # only warn if those lines are recent-ish — we only have last 80 lines
-    add warn journal "recent o3-hdmi log contains STALL/ERROR/modeset-fail (see journalctl -u o3-hdmi -n 80)"
+  # Intentional in-process idle splash logs "STALL: … in-process idle splash" — not a fault.
+  # Only warn on real pipeline/modeset failures or unexplained stalls.
+  bad_j="$(printf '%s\n' "$jn" | grep -E 'pipeline ERROR|drmModeSetCrtc \(initial modeset\) failed|initial modeset kept failing|STALL:' \
+    | grep -v 'in-process idle splash' || true)"
+  if [[ -n "${bad_j// }" ]]; then
+    add warn journal "recent o3-hdmi log contains ERROR/modeset-fail/bad-STALL (see journalctl -u o3-hdmi -n 80)"
   else
-    add ok journal "no STALL/ERROR/modeset-fail in last 80 lines"
+    add ok journal "no ERROR/modeset-fail in last 80 lines (idle-hold STALL ignored)"
   fi
   if echo "$jn" | grep -Eq 'es_bytes=[1-9]|frames=[1-9]'; then
     last="$(echo "$jn" | grep -E 'es_bytes=|frames=' | tail -1 | cut -c1-160)"
@@ -329,7 +355,10 @@ echo
 echo "tips:"
 echo "  journal:  journalctl -u o3-hdmi -f"
 echo "  watchdog: journalctl -u o3-oops-watchdog -f"
+echo "  host:     $REPO/scripts/o3_host_probe.sh"
 echo "  soak:     sudo $REPO/scripts/o3_soak.sh"
-echo "  restart:  unplug goggles first → sudo $REPO/scripts/o3_hdmi_safe_stop.sh --restart"
+echo "  restart:  sudo $REPO/scripts/o3_hdmi_safe_stop.sh --restart"
+echo "            (runs host probe; refuses only on LIVE_HOST / live au_feed —"
+echo "             udc=configured alone is NOT a reason to refuse)"
 
 exit "$exit_code"

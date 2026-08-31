@@ -15,7 +15,7 @@ until someone reports success.
 | Goggles | **DJI Goggles 2** |
 | Air unit | **DJI O3 Air Unit** (live FPV must already show **in the goggles**) |
 | Video path | AOA bulk framing `55 CC 4A 57` → **H.264** ES (~5–8 Mbit/s, often ~50 AU/s) |
-| HDMI out | Single monitor on **HDMI-A-2** (far micro-HDMI), 1920×1080 panel class |
+| HDMI out | Dual micro-HDMI default (`DRM_CONNECTOR=auto`); 1920×1080 panel class. One monitor on **HDMI-A-2** is enough. |
 | Player | `O3_HDMI_PLAYER=atomic` → SW decode `avdec_h264` + atomic KMS |
 | Power | Pi on **GPIO 5V or PoE**, not USB-C data; goggles cable **VBUS-isolated** |
 
@@ -24,14 +24,14 @@ until someone reports success.
 - Cold boot → idle splash → plug goggles → live HDMI
 - Unplug goggles → splash; replug → live again
 - Air-unit / battery power cycle with goggles still on Pi → re-arm (field-confirmed)
-- Non-16:9 coded sizes (e.g. 1440×1080) letterboxed onto fixed 1920×1080 canvas
+- Non-16:9 coded sizes (e.g. 1440×1080 4:3) true center-cropped (`aspectratiocrop`) then uniform-scaled to fixed 1920×1080 by default (`O3_HDMI_ASPECT=crop` — matches native 16:9 FOV); set `letterbox` for full FOV + bars
 - Correct chroma at high-contrast edges (SW decode; do not switch back to Pi HW H.264 by default)
 
 ## Explicitly not shipping / parked
 
 | Item | Status |
 |---|---|
-| Dual HDMI | Parked — `docs/DUAL_HDMI_PARKED.md` |
+| Dual HDMI | **Shipping default** (atomic multi) — single-port override in `docs/DUAL_HDMI_PARKED.md` |
 | mpv as field player | Retired (historical fallback only) |
 | Network re-stream (RTMP/NDI/etc.) | Not started |
 | FunctionFS gadget path | Kernel on this Pi lacked `CONFIG_USB_FUNCTIONFS`; raw-gadget is the path |

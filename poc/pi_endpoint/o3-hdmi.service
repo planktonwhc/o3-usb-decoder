@@ -17,22 +17,33 @@ User=root
 Environment=O3_REPO=/home/pi/o3test
 Environment=UDC=fe980000.usb
 Environment=DRM_DEVICE=/dev/dri/card1
-# FIELD: single HDMI only. Far micro-HDMI (HDMI-A-2) was the eyes-on good port.
-# Leave near (A-1) unplugged for field. Dual is parked — see docs/DUAL_HDMI_PARKED.md
-# (set DRM_CONNECTOR=auto and O3_DUAL_HDMI=1 only in a dedicated dual session).
-# Player: atomic-KMS (present-per-frame). mpv is retired for field use.
-Environment=DRM_CONNECTOR=HDMI-A-2
-Environment=O3_DUAL_HDMI=0
+# FIELD default: dual atomic — same FPV on both micro-HDMI ports (owner-confirmed
+# 2026-07-16). DRM_CONNECTOR=auto picks all usable HDMI (edid≥128); O3_DUAL_HDMI=1
+# page-flips one YU12 FB onto both CRTCs. Single-port: set O3_DUAL_HDMI=0 and
+# DRM_CONNECTOR=HDMI-A-2 (far). See docs/DUAL_HDMI_PARKED.md.
+Environment=DRM_CONNECTOR=auto
+Environment=O3_DUAL_HDMI=1
 Environment=O3_DUAL_MODE=drm
 Environment=O3_HDMI_PLAYER=atomic
+# 4:3 coded frames (e.g. 1440×1080) → full-bleed 16:9 via true center-crop
+# (aspectratiocrop + uniform scale — NOT anamorphic stretch). Matches native
+# goggles 16:9 FOV. Pilots keep 4:3 in goggles. letterbox = full FOV + bars.
+Environment=O3_HDMI_ASPECT=crop
+# Plug-in latency (2026-08-30 / rolled back 2026-08-31): presenter still
+# pre-starts at boot (O3_ATOMIC_IDLE_FIRST=1) so HDMI-already-up skips the
+# GStreamer import on USB plug. Gold arming gap cap is back to 0.08s —
+# 0.02s failed eyes-on (encoder reset / USB SUSPEND). Opt-in: O3_ARM_GAP_CAP_S=0.02.
 # Idle screen: large DRM splash instead of the Linux text console (owner 2026-07-16).
 # O3_IDLE_SPLASH=0 restores console-on-idle. Text is field-tunable.
 # Quotes required: systemd splits unquoted Environment= values on spaces.
 Environment=O3_IDLE_SPLASH=1
 Environment="O3_IDLE_SPLASH_TEXT=waiting for live FPV feed"
 ExecStart=/home/pi/o3test/scripts/o3_hdmi_run.sh
-# Clean stop: SIGINT so Python finally/close runs. Prefer UNPLUG goggles first
-# (gotcha #4: killing raw-gadget while the host is still attached can oops dwc2).
+# Clean stop: SIGINT so Python finally/close runs.
+# Operator/agent restart path (NOT raw systemctl): scripts/restart_o3_hdmi.sh
+#   → o3_host_probe + o3_hdmi_safe_stop.sh --restart
+# Gotcha #4: do not tear down raw-gadget under a LIVE host (au_feed/ES).
+# udc=configured alone is NOT live (phantom after unplug is common).
 KillSignal=SIGINT
 TimeoutStopSec=20
 # On crash / gadget re-init failure, retry. Endpoint stays up across clean

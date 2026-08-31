@@ -12,8 +12,8 @@ live video (`55 CC 4A 57` → H.264), and presents on HDMI.
 | Field player | **`O3_HDMI_PLAYER=atomic`** → `atomic_drm_present.py` |
 | Idle screen | **`O3_IDLE_SPLASH=1`** → `idle_splash.py` (“waiting for live FPV feed”) |
 | Decode | **SW `avdec_h264`** (`gstreamer1.0-libav`) — HW `v4l2h264dec` chroma-wrong |
-| Canvas | Fixed DRM 1920×1080; `videoscale add-borders` letterboxes any coded size |
-| Dual HDMI | **Parked** — `docs/DUAL_HDMI_PARKED.md` |
+| Canvas | Fixed DRM 1920×1080; `O3_HDMI_ASPECT=crop` (default) true center-crop 4:3→16:9 (matches native 16:9 FOV); `letterbox` keeps full FOV + bars |
+| Dual HDMI | **Default** (`O3_DUAL_HDMI=1`, `DRM_CONNECTOR=auto`) — `docs/DUAL_HDMI_PARKED.md` |
 | Boot | `o3-hdmi.service` → `scripts/o3_hdmi_run.sh` |
 | Oops auto-reboot | `o3-oops-watchdog.service` → `scripts/o3_oops_watchdog.sh` |
 | Preflight | `scripts/event_health.sh --preflight` |
@@ -194,9 +194,9 @@ within ~2s.
 **All-day / boot autostart (recommended):**
 
 ```bash
-# from laptop (after code changes):
-scripts/push_to_pi.sh
-# on Pi — idempotent install + enable + start:
+# from laptop (after code changes) — push + safe restart:
+scripts/push_to_pi.sh --restart
+# first-time / unit reinstall on Pi:
 sudo ~/o3test/scripts/install_hdmi_service.sh
 # watch:
 journalctl -u o3-hdmi -f
@@ -208,8 +208,11 @@ re-arms in-process; next plug runs AOA again. Pi power off/on brings the service
 back automatically. HDMI-only (no disk fill).
 
 ```bash
-sudo systemctl status o3-hdmi
-sudo systemctl stop o3-hdmi     # ⚠ UNPLUG goggles FIRST
+# Canonical restart (probe + clear phantom UDC + start). Never gate on udc alone.
+scripts/restart_o3_hdmi.sh                 # from laptop (SSH) or on Pi
+sudo ~/o3test/scripts/o3_hdmi_safe_stop.sh --restart   # on Pi only
+~/o3test/scripts/o3_host_probe.sh          # multi-signal; SAFE_STOP vs LIVE_HOST
+systemctl status o3-hdmi
 sudo ~/o3test/scripts/install_hdmi_service.sh --disable
 ```
 

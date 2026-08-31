@@ -19,12 +19,12 @@ Goggles 2 (USB host) ──VBUS-isolated USB-C──▶ Pi 4 dwc2 (AOA accessory
                                     SW decode (avdec_h264) + atomic-KMS
                                                     │
                                                     ▼
-                                         micro-HDMI (HDMI-A-2) monitor
+                              both micro-HDMI ports (same feed; crop to 16:9)
 ```
 
-**Status (2026-07-16):** field-confirmed excellent — smooth ~50 fps, correct
-chroma, letterboxed aspects, idle splash, air-unit hot-swap recovery, boot
-service + kernel-oops watchdog. Dual HDMI is parked.
+**Status (2026-08-31):** field-confirmed — smooth ~50 fps, software decode
+(correct chroma), 4:3 center-cropped to 16:9, **dual HDMI default**, idle splash,
+air-unit hot-swap recovery, boot service + kernel-oops watchdog.
 
 | Doc | Purpose |
 |---|---|
@@ -34,7 +34,6 @@ service + kernel-oops watchdog. Dual HDMI is parked.
 | [`docs/FIELD_TEST_CARD.md`](docs/FIELD_TEST_CARD.md) | Laminated field checklist |
 | [`docs/OPEN_SOURCE.md`](docs/OPEN_SOURCE.md) | How this repo is published cleanly |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | PRs, scope, what not to send |
-| [`CLAUDE.md`](CLAUDE.md) | Full operator / agent history (long) |
 
 ---
 
@@ -53,7 +52,7 @@ steps in order. Total time is roughly one evening once the parts are on the desk
 | **Pi power (not USB-C data)** | GPIO 5V (or PoE). Official USB-C PSU is OK **only until** goggles are plugged. |
 | **VBUS isolator** | **Required.** Blocks 5V on goggles→Pi USB-C, passes data. e.g. PortaPow *Power* Blocker (+ adapters) or a DIY cut of the red wire. |
 | **USB-C data cable** | Goggles → Pi USB-C (through the isolator). |
-| **Monitor** | micro-HDMI cable → display. Field default: **far** Pi micro-HDMI (**HDMI-A-2**). |
+| **Monitor** | micro-HDMI → display. Default is **both** Pi ports (`DRM_CONNECTOR=auto`). One monitor on **HDMI-A-2** (far) is enough. |
 | **Laptop on same LAN** | SSH + `rsync` for deploy. |
 | **Goggles 2 + O3 air unit** | Air unit must show live video **in the goggles** before the Pi can show it. |
 
@@ -210,8 +209,8 @@ Service defaults (shipping):
 | Env | Value | Meaning |
 |---|---|---|
 | `O3_HDMI_PLAYER` | `atomic` | present-per-frame KMS player |
-| `DRM_CONNECTOR` | `HDMI-A-2` | far micro-HDMI |
-| `O3_DUAL_HDMI` | `0` | dual parked |
+| `DRM_CONNECTOR` | `auto` | all usable HDMI ports |
+| `O3_DUAL_HDMI` | `1` | both micro-HDMI (same feed) |
 | `O3_IDLE_SPLASH` | `1` | “waiting for live FPV feed” instead of console |
 | `UDC` | `fe980000.usb` | Pi 4 dwc2 UDC name |
 | `DRM_DEVICE` | `/dev/dri/card1` | vc4 DRM card on Bookworm |
@@ -224,8 +223,8 @@ automatically from the real repo location.
 ### Step 6 — First live video
 
 1. Pi powered (GPIO/PoE), services running.
-2. Monitor on **HDMI-A-2** — idle splash should show **“waiting for live FPV feed”**
-   (after quiet-boot tokens apply, less Linux text flash).
+2. Monitor(s) on either/both micro-HDMI — idle splash should show **“waiting for live FPV feed”**
+   (after quiet-boot tokens apply, less Linux text flash). Dual is default.
 3. Power the **air unit**; confirm **live FPV inside the goggles**.
 4. Plug goggles → Pi USB-C **through the VBUS isolator**.
 5. Within a few seconds, HDMI should show the same live feed (~1080p-class H.264,
@@ -270,13 +269,24 @@ sudo ~/o3test/scripts/o3_hdmi_safe_stop.sh --restart
 
 ### Safe stop / restart
 
-**Gotcha #4:** never `systemctl stop/restart o3-hdmi` while goggles are still
-attached — tearing down raw-gadget under a live host can oops `dwc2` and wedge the
-UDC until a full reboot.
+**Gotcha #4:** never tear down raw-gadget while goggles are **actually streaming**
+(live `au_feed` / ES) — that can oops `dwc2` and wedge the UDC until a full reboot.
+
+**`udc=configured` alone is NOT proof the goggles are plugged** (phantom after
+unplug is common). Always use the multi-signal probe + safe_stop path:
 
 ```bash
-# Always prefer:
-sudo ~/o3test/scripts/o3_hdmi_safe_stop.sh --restart   # unplug first when possible
+# Canonical one-command path (laptop or Pi):
+scripts/restart_o3_hdmi.sh
+# After code changes:
+scripts/push_to_pi.sh --restart
+
+# Multi-signal host check (exit 0=SAFE_STOP, 1=LIVE_HOST, 2=UNCERTAIN):
+~/o3test/scripts/o3_host_probe.sh
+# On Pi only:
+sudo ~/o3test/scripts/o3_hdmi_safe_stop.sh --restart
+# LIVE_HOST → unplug first, or: scripts/restart_o3_hdmi.sh --force
+
 # Disable entirely:
 sudo ~/o3test/scripts/install_hdmi_service.sh --disable
 ```
@@ -313,8 +323,9 @@ sudo ~/o3test/scripts/phaseB_standalone.sh -v --hdmi
    **sustain** loop so the goggles keep the session alive.
 3. Goggles push framed video chunks (`55 CC 4A 57` + length); **`StreamingVideoDeframer`**
    yields Annex-B H.264.
-4. **`atomic_drm_present.py`** SW-decodes with `avdec_h264`, letterboxes onto a fixed
-   1920×1080 DRM canvas, modesets once, then page-flips each frame.
+4. **`atomic_drm_present.py`** SW-decodes with `avdec_h264`, center-crops 4:3 to
+   16:9 (`O3_HDMI_ASPECT=crop`; set `letterbox` for full FOV + bars), scales onto a
+   fixed 1920×1080 DRM canvas, modesets once, then page-flips each frame.
 5. Idle / stream loss paints an in-process splash without flashing the Linux console
    when possible; video silence can re-arm the gold sequence after air-unit power loss.
 
@@ -336,7 +347,7 @@ Primary code: `poc/pi_endpoint/raw_endpoint.py`, `atomic_drm_present.py`,
 | Green OSD bar / cyan edge ghosts | Old HW-decode path — ensure `O3_HDMI_PLAYER=atomic` + `gstreamer1.0-libav` |
 | `throttled` not `0x0` | Fix power supply before chasing software |
 | Stopped service with goggles plugged | May need **full Pi reboot** (gotcha #4) |
-| Wrong HDMI port | Field unit expects **HDMI-A-2**; switch cable or set `DRM_CONNECTOR` in the unit |
+| Wrong HDMI port | Default is both ports (`DRM_CONNECTOR=auto`). Single display: use **HDMI-A-2** or set `DRM_CONNECTOR` |
 
 ```bash
 # Quick health dump
@@ -361,7 +372,6 @@ dmesg | tail -40
 | `docs/` | Protocol notes, session closes, field/event cards |
 | `captures/` | Append-only captures (do not overwrite) |
 | `poc/pi_mitm/`, `poc/usb_proxy_o3/` | Phase A MITM (phone in the middle) — not needed for daily HDMI |
-| `CLAUDE.md` | Full mission status, gotchas, agent handoff |
 
 Endpoint-level notes: [`poc/pi_endpoint/README.md`](poc/pi_endpoint/README.md).
 
@@ -372,7 +382,7 @@ Endpoint-level notes: [`poc/pi_endpoint/README.md`](poc/pi_endpoint/README.md).
 - Not a stock DJI product feature and not an official SDK path.
 - Not the old FPV Goggles V1/V2 bulk/`0x524d5654` protocol (that is [voc-poc](https://github.com/fpv-wtf/voc-poc); different hardware).
 - Not CosmoStreamer (commercial closed-source). This project is the open alternative.
-- Dual-HDMI output is **parked** — see [`docs/DUAL_HDMI_PARKED.md`](docs/DUAL_HDMI_PARKED.md).
+- Dual HDMI is the **default** (atomic same-buffer on both micro-HDMI ports). Single-port override: [`docs/DUAL_HDMI_PARKED.md`](docs/DUAL_HDMI_PARKED.md).
 - Not a redistributor of DJI Fly, firmware, or proprietary native libraries.
 
 This work is interoperability on hardware we own: reading our own drone’s video

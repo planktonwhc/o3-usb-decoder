@@ -19,6 +19,7 @@ Emulates the phone side of the goggles' AOA link so the goggles converse + strea
 from __future__ import annotations
 
 import argparse
+import errno
 import os
 import select
 import signal
@@ -691,45 +692,37 @@ def _atomic_present_path() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "atomic_drm_present.py")
 
 
-def default_atomic_cmd(target: dict, drm_device: str) -> list[str]:
-    """Single-HDMI atomic-KMS present-per-frame path (O3_HDMI_PLAYER=atomic).
+def default_atomic_cmd(target: dict | list[dict], drm_device: str) -> list[str]:
+    """Atomic-KMS present-per-frame path (O3_HDMI_PLAYER=atomic).
 
-    HW decode (v4l2h264dec, in-process GStreamer appsink) → memcpy each I420 frame
-    into a YU12 dumb buffer (vc4 scans YU12 out natively) → drmModePageFlip onto the
-    connector's CRTC. Modeset happens exactly ONCE (drmModeSetCrtc on the first
-    frame); everything after is a page-flip, which is NOT a modeset and so cannot
-    drop the monitor's HDMI sync the way kmssink's per-spawn force-modesetting did.
+    Single or dual: one process, SW decode (avdec_h264) → YU12 dumb buffer pool →
+    drmModePageFlip. Modeset ONCE per CRTC; dual uses the **same** FB on both when
+    modes match (see atomic_drm_present.py Stage 2).
 
-    Stdin is the endpoint's already-level-patched (L5.2→L4.2) H.264 ES — the atomic
-    script does NOT re-patch stdin (only its offline --es-file feeder patches).
+    `target` is one connector dict, or a list for multi (e.g. A-1+A-2).
+    Stdin is the endpoint's already-level-patched H.264 ES.
     """
+    if isinstance(target, dict):
+        conn = target["name"]
+    else:
+        if not target:
+            raise ValueError("default_atomic_cmd requires at least one target")
+        conn = ",".join(t["name"] for t in target)
     return [
         sys.executable,
         _atomic_present_path(),
         f"--device={drm_device}",
-        f"--connector={target['name']}",
+        f"--connector={conn}",
     ]
 
 
 def default_gst_cmd(targets: list[dict]) -> list[str]:
-    """Multi-HDMI live path (O3_DUAL_HDMI=1).
+    """Legacy multi-HDMI path when player is NOT atomic (debug only).
 
-    Offline prove 2026-07-13 on this Pi 4 vc4:
-
-    - Single openh264dec→BGRx→kmssink PLAYING on A-1 *or* A-2 alone: OK.
-    - Dual tee→kmssink×2: FAILS (modeset / SetPlane Permission denied).
-    - fbdevsink RGB16: both paint, but A-1 often at 1024×768 **crops** top-left
-      of the 1920×1080 FB (not scale).
-    - **dual_drm_mirror.py** (default): one DRM master, one 1080p buffer, each
-      CRTC gets plane **scale-to-fit** (letterbox). A-1 full image scaled; A-2
-      full 1080p when modeset allows.
-
-    Override:
-      O3_DUAL_MODE=drm|mirror   → dual_drm_mirror (default)
-      O3_DUAL_MODE=fbdev        → shared /dev/fb0 (crop risk on mismatched modes)
-      O3_DUAL_MODE=kms          → broken dual kmssink (debug only)
-
-    Single-port field default remains mpv (O3_DUAL_HDMI=0).
+    Field dual uses atomic multi (default_atomic_cmd), not this. Kept for:
+      O3_DUAL_MODE=drm|mirror   → dual_drm_mirror
+      O3_DUAL_MODE=fbdev        → shared /dev/fb0 (crop risk)
+      O3_DUAL_MODE=kms          → broken dual kmssink
     """
     if not targets:
         raise ValueError("default_gst_cmd requires at least one target")
@@ -738,7 +731,7 @@ def default_gst_cmd(targets: list[dict]) -> list[str]:
         return _default_gst_dual_kmssink(targets)
     if mode in ("fbdev", "fb"):
         return _default_gst_dual_fbdev()
-    # Default: scale-to-fit dual DRM mirror (stdin = H.264 ES).
+    # Default legacy: scale-to-fit dual DRM mirror (stdin = H.264 ES).
     return _default_gst_dual_drm()
 
 
@@ -813,11 +806,14 @@ def _default_gst_dual_kmssink(targets: list[dict]) -> list[str]:
 
 
 def dual_hdmi_enabled() -> bool:
-    """True when dual-HDMI path is allowed (dual_drm_mirror / optional gst).
+    """True when dual-HDMI path is allowed (atomic multi-CRTC page-flip).
 
-    Offline eyes-on 2026-07-13: dual_drm_mirror with EDID 1080p on both CRTCs
-    shows full-frame on A-1 and A-2. Service may set O3_DUAL_HDMI=1; single
-    usable port still uses mpv regardless.
+    Requires O3_DUAL_HDMI=1 **and** DRM_CONNECTOR=auto (or HDMI-A-1,HDMI-A-2)
+    so resolve_hdmi_targets() returns ≥2 usable ports. With the field pin
+    DRM_CONNECTOR=HDMI-A-2, dual stays single even if O3_DUAL_HDMI=1.
+
+    Shipping dual backend is atomic (same YU12 FB → both CRTCs). Legacy
+    dual_drm_mirror only when O3_HDMI_PLAYER is not atomic.
     """
     return os.environ.get("O3_DUAL_HDMI", "").strip().lower() in ("1", "true", "yes", "on")
 
@@ -825,14 +821,10 @@ def dual_hdmi_enabled() -> bool:
 class HdmiPlayer:
     """Feeds the live H.264 ES to decoder subprocess(es) without ever blocking USB.
 
-    Single usable HDMI  → mpv zero-copy path (best quality / lowest CPU).
-    Two+ usable HDMIs   → GStreamer decodebin + tee + N× kmssink (one process,
-                          both CRTCs; dual-mpv is impossible — DRM master).
+    Single usable HDMI  → atomic (field) / mpv / gst per O3_HDMI_PLAYER.
+    Two+ usable HDMIs + O3_DUAL_HDMI=1 + atomic → dual-atomic page-flip both.
     Phantom connectors (status=connected, 0-byte EDID) are ignored in `auto`.
 
-    If the multi-port GStreamer path dies immediately, fall back to single-port
-    mpv on the best usable connector so field dual-cable setups never leave both
-    screens stuck on the Linux console.
 
     `connector_spec="auto"` tracks every usable HDMI-A-* and restarts the player
     when the set changes (plug either port, or both, at any time).
@@ -973,10 +965,21 @@ class HdmiPlayer:
         targets = resolve_hdmi_targets(self.drm_device, self.connector_spec)
         self._targets_key = self._targets_fingerprint(targets)
         names = ", ".join(t["name"] for t in targets) or "(none yet)"
-        print(f"[*] HDMI armed (lazy): will start player on first SPS → {names}",
+        print(f"[*] HDMI armed → {names} "
+              f"(atomic idle-first pre-spawn unless O3_ATOMIC_IDLE_FIRST=0)",
               flush=True)
         # Boot / pre-video: own the plane with the idle message (not the text console).
         self._enter_idle_display(reason="boot")
+        # Pre-start the atomic presenter now so USB-plug does not pay the 3–5s
+        # GStreamer/PyGObject import. Child takes master (NEED_MASTER), paints
+        # in-process splash, idle-holds until SIGUSR2 on the first SPS.
+        idle_first = os.environ.get("O3_ATOMIC_IDLE_FIRST", "1").strip().lower() not in (
+            "0", "false", "no", "off",
+        )
+        if idle_first and selected_player() == "atomic" and self.fixed_cmd is None:
+            print("[*] HDMI: pre-starting atomic presenter (idle-first) — "
+                  "plug-in skips GStreamer import", flush=True)
+            self._spawn()
         if self.fixed_cmd is None and self._watch is None:
             self._watch = threading.Thread(target=self._hotplug_loop, name="hdmi-hotplug",
                                            daemon=True)
@@ -1014,22 +1017,38 @@ class HdmiPlayer:
         use = list(targets)
         if self._force_single and len(use) > 1:
             use = self._best_single(use)
-        # Default: multi-port → best single mpv. Dual kmssink hangs at PAUSED on this
-        # Pi (DRM master), leaving both screens on console with a live but idle gst.
+        # Dual off: multi-port → best single (prefer A-2). Dual on needs
+        # DRM_CONNECTOR=auto (or explicit A-1,A-2) so `use` has ≥2 targets.
         if len(use) > 1 and not dual_hdmi_enabled():
             best = self._best_single(use)
             if not self._multi_log_once:
                 names = ", ".join(t["name"] for t in use)
                 print(
-                    f"[*] multi-HDMI ({names}): using mpv on {best[0]['name']} only "
-                    f"(set O3_DUAL_HDMI=1 for dual_drm_mirror on both)",
+                    f"[*] multi-HDMI ({names}): using single on {best[0]['name']} only "
+                    f"(set O3_DUAL_HDMI=1 and DRM_CONNECTOR=auto for dual-atomic both)",
                     flush=True,
                 )
                 self._multi_log_once = True
             use = best
         if len(use) == 1:
+            if dual_hdmi_enabled() and not self._multi_log_once:
+                print(
+                    f"[!] O3_DUAL_HDMI=1 but only 1 usable target "
+                    f"({use[0]['name']}, spec={self.connector_spec!r}) — "
+                    f"set DRM_CONNECTOR=auto (or HDMI-A-1,HDMI-A-2) for dual",
+                    flush=True,
+                )
+                self._multi_log_once = True
             return self._single_player_cmd(use[0])
-        # Multi experimental path: need numeric connector ids for kmssink.
+        # Multi + dual enabled.
+        kind = selected_player()
+        if kind == "atomic":
+            names = ", ".join(t["name"] for t in use)
+            if not self._multi_log_once:
+                print(f"[*] multi-HDMI dual-atomic page-flip → {names}", flush=True)
+                self._multi_log_once = True
+            return default_atomic_cmd(use, self.drm_device)
+        # Legacy non-atomic dual (dual_drm / fbdev / kmssink) — debug only.
         if any(t.get("id") is None for t in use):
             print("[!] multi-HDMI needs sysfs connector_id; falling back to best single",
                   flush=True)
@@ -1115,8 +1134,15 @@ class HdmiPlayer:
                         (a.split("=", 1)[1] for a in cmd if a.startswith("--connector=")),
                         "?",
                     )
-                    label = f"atomic-kms-present → {conn}"
-                    active_targets = [c for c in targets if c["name"] == conn] or self._best_single(targets)
+                    conn_names = [n.strip() for n in conn.split(",") if n.strip()]
+                    if len(conn_names) > 1:
+                        label = f"dual-atomic-page-flip → {conn}"
+                    else:
+                        label = f"atomic-kms-present → {conn}"
+                    active_targets = (
+                        [c for c in targets if c["name"] in conn_names]
+                        or self._best_single(targets)
+                    )
                 else:
                     # gst: fbdev dual paints all targets; kmssink dual uses connector-id=
                     is_fbdev = any(a == "fbdevsink" or a.startswith("fbdevsink") for a in cmd)
@@ -1171,11 +1197,20 @@ class HdmiPlayer:
                 # bufsize=0: unbuffered stdin so each chunk hits the OS pipe immediately.
                 # stderr piped so silent kmssink/mpv deaths show up in journalctl.
                 # Elevate player priority via nice(1) — avoids preexec_fn + threads
-                # pitfalls. mpv and the atomic presenter both benefit (present-per-frame
-                # wants to make each vblank deadline).
+                # pitfalls. mpv still gets -10 (present-per-frame vblank). The
+                # atomic presenter is SW avdec_h264: nice -10 starved the USB bulk
+                # reader (2026-08-31: ES died every ~25s → wait screen). Default
+                # +5 so the endpoint keeps the CPU; override O3_ATOMIC_NICE.
                 run_cmd = cmd
-                if cmd and (cmd[0] == "mpv" or any("atomic_drm_present" in a for a in cmd)):
+                if cmd and cmd[0] == "mpv":
                     run_cmd = ["nice", "-n", "-10", *cmd]
+                elif cmd and any("atomic_drm_present" in str(a) for a in cmd):
+                    try:
+                        n = int(os.environ.get("O3_ATOMIC_NICE", "5").strip() or "5")
+                    except ValueError:
+                        n = 5
+                    n = max(-20, min(19, n))
+                    run_cmd = ["nice", "-n", str(n), *cmd]
                 self._proc = subprocess.Popen(
                     run_cmd, stdin=subprocess.PIPE, bufsize=0,
                     stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
@@ -1212,7 +1247,24 @@ class HdmiPlayer:
             if is_atomic:
                 warmup = _env_float("O3_ATOMIC_WARMUP_SECS", 8.0)
                 self._spawn_grace_until = self._last_spawn_mono + warmup
-                self._warmup_limit = max(self._max, int(round(self._container_fps * warmup)) + 24)
+                # Backlog SIZE cap during warm-up, decoupled from the TIME window
+                # above. Field-confirmed fix (2026-08-22, owner: "much better") for
+                # ~5s of "heavy lagged video" on plug-in before it snapped to live.
+                # Root cause: this cap used to equal warmup*fps (~424 AUs @ 8s/50fps)
+                # — a slow cold-start (3-5s) let that many stale AUs bank before the
+                # presenter's stdin even opened, and the presenter then had to
+                # decode/present through the whole backlog (queue is deliberately
+                # non-leaky — never drop compressed ES) to reach live. The TIME
+                # window stays generous (dropping mid cold-start fragments the first
+                # keyframe and starves the decoder into livelock), but the SIZE cap
+                # doesn't need to grow with it: _enqueue_units' existing
+                # back-pressure (clear + re-align to the next SPS, never mid-GOP)
+                # fires repeatedly through the whole warm-up window and keeps the
+                # backlog small and fresh instead of growing unchecked for the full
+                # 8s. 1.5s default field-tested via a systemd drop-in before landing
+                # here; override with O3_ATOMIC_WARMUP_BACKLOG_S if needed.
+                backlog_s = _env_float("O3_ATOMIC_WARMUP_BACKLOG_S", 1.5)
+                self._warmup_limit = max(self._max, int(round(self._container_fps * backlog_s)) + 24)
             else:
                 self._spawn_grace_until = self._last_spawn_mono + 1.0
                 self._warmup_limit = 0
@@ -1354,11 +1406,19 @@ class HdmiPlayer:
             self._respawn_failures = 0
             self._multi_log_once = False
             self._targets_key = key
-            # Connector set changed: kill any player; next feed() will lazy-start.
+            # Connector set changed: kill any player. Idle-first re-spawns so a
+            # monitor plugged after boot still pays GStreamer import now, not
+            # at USB-plug. _spawn() no-ops cleanly when no usable connector.
             if self._proc is not None:
                 self._need_sps = True
                 self._ever_spawned = False
                 self._transition_to_idle(reason="hotplug", who_kill="hotplug")
+            idle_first = os.environ.get("O3_ATOMIC_IDLE_FIRST", "1").strip().lower() not in (
+                "0", "false", "no", "off",
+            )
+            if idle_first and selected_player() == "atomic" and self.fixed_cmd is None:
+                print("[*] HDMI: idle-first spawn after hotplug", flush=True)
+                self._spawn()
 
     @staticmethod
     def _find_aud_starts(data: bytes) -> list[int]:
@@ -1690,11 +1750,6 @@ class HdmiPlayer:
             self._au_buf = bytearray()
             print(f"[*] HDMI: ES aligned to SPS ({len(chunk)} bytes from keyframe)", flush=True)
             self._note_sps_timing(chunk)
-            # Flag: after we enqueue this keyframe, SIGUSR2 the idle-holding atomic so it
-            # rebuilds the decoder without DropMaster (seamless splash→video).
-            if self._player_holding_idle:
-                self._player_holding_idle = False
-                self._pending_idle_resume = True
         units = self._coalesce_aus(chunk)
         if not units and self._au_coalesce:
             return  # holding partial AU (resume fires once we have a full AU)
@@ -1723,7 +1778,14 @@ class HdmiPlayer:
                       "(HW decoder needs ≤5.1; O3 repeats L5.2 SPS per keyframe)",
                       flush=True)
         self._enqueue_units(units)
-        # After ES is queued (pump will write to stdin), resume the idle-holding presenter.
+        # Resume idle-holding atomic after ES is queued. Do this on ANY chunk once
+        # IDLE_SPLASH has been logged — not only on the SPS-align event — so a
+        # boot idle-first presenter (or a respawn whose first SPS arrived during
+        # gi import) still gets SIGUSR2. Never SIGUSR2 before IDLE_SPLASH:
+        # default SIGUSR2 kills the process during import.
+        if self._player_holding_idle:
+            self._player_holding_idle = False
+            self._pending_idle_resume = True
         if self._pending_idle_resume:
             self._pending_idle_resume = False
             p = self._proc
@@ -2023,9 +2085,18 @@ class HdmiPlayer:
                 pass
 
     def _splash_connector_arg(self) -> str:
+        """Connector arg for idle_splash — multi when dual-atomic will use ≥2 ports."""
+        if dual_hdmi_enabled():
+            try:
+                targets = resolve_hdmi_targets(self.drm_device, self.connector_spec)
+            except Exception:
+                targets = []
+            if len(targets) > 1:
+                return ",".join(t["name"] for t in targets)
         conn = self.connector_spec
         if not conn or conn.strip().lower() in ("auto", "any", "*"):
             return "auto"
+        # Single pin (field default HDMI-A-2) or first of an explicit list.
         return conn.split(",")[0].strip() or "auto"
 
     def _start_idle_splash_proc(self) -> bool:
@@ -2397,6 +2468,9 @@ class AccessorySession:
         self._video_rearm_count = 0
         self._es_last_grow_mono = 0.0     # last time _es_written increased
         self._video_rearm_last_mono = 0.0  # last time we requested a re-arm (cadence)
+        self._last_suspend_mono = 0.0      # USB SUSPEND — unplug in progress, not hot-swap
+        self._initial_arm_done = False
+        self._initial_arm_mono = 0.0
         self._video_rearm_enable = os.environ.get(
             "O3_VIDEO_REARM", "1"
         ).strip().lower() not in ("0", "false", "no", "off")
@@ -2519,7 +2593,12 @@ class AccessorySession:
         print(f"[*] {reason} — re-arming for next plug (AOA from scratch)", flush=True)
         self._stop_io_threads()
         self.config_value = 0
-        self.mode = "accessory" if self.cold_2d01 else "normal"
+        # Real DISCONNECT: keep the accessory bind. Closing /dev/raw-gadget here
+        # oopses dwc2 (raw_release → gadget_resume → raw_event_queue_add) and the
+        # watchdog reboots the Pi (2026-08-31, twice). Phantom unplug still
+        # re-inits because the UDC is stuck with no DISCONNECT.
+        keep_bind = (reason == "disconnect" and not self.cold_2d01)
+        self.mode = "accessory" if (self.cold_2d01 or keep_bind) else "normal"
         self.aoa_strings = {}
         self.pending_reenum = False
         self.aoa_buf = bytearray()
@@ -2540,27 +2619,72 @@ class AccessorySession:
         self._deframer_reset_evt.clear()
         self._es_last_grow_mono = 0.0
         self._video_rearm_last_mono = 0.0
+        self._initial_arm_done = False
+        self._initial_arm_mono = 0.0
         with self._rearm_lock:
             self._phantom_rearm_reason = None
         # Keep the capture file open (append more after re-plug) when recording; only
         # reset the in-memory ES bookkeeping so stats stay honest per session.
-        # Release HDMI to the console — do NOT restart empty mpv (black screen).
+        # Prefer in-process atomic splash (keep DRM master). Killing the player here
+        # DropMasters → Linux console flash (2026-08-31 reconnect).
         if self.player is not None:
             try:
                 self.player.idle_until_video(reason=reason)
             except Exception as e:
                 print(f"[!] HDMI idle after rearm: {e}", flush=True)
         # Present normal PID again so the goggles re-run GET_PROTOCOL→…→START.
-        # reinit also clears stuck UDC 'configured' when the host is already gone.
-        if not self.cold_2d01:
+        # Skip on a real DISCONNECT — keep the existing accessory bind.
+        if not self.cold_2d01 and not keep_bind:
+            self._reinit_gadget_for_next_plug()
+        elif keep_bind:
+            print("[*] gadget kept bound after DISCONNECT (no close/reinit)", flush=True)
+
+    def _wait_udc_quiescent(self, timeout_s: float = 4.0) -> str:
+        """Wait until dwc2 reports not-attached (unplug finished winding down)."""
+        deadline = time.monotonic() + timeout_s
+        st = _udc_state(self.rg.device)
+        while time.monotonic() < deadline:
+            if st in ("not attached", "not_attached"):
+                return st
+            time.sleep(0.2)
+            st = _udc_state(self.rg.device)
+        return st
+
+    def _reinit_gadget_for_next_plug(self) -> None:
+        st = self._wait_udc_quiescent(4.0)
+        print(f"[*] gadget re-init: udc={st} after unplug settle", flush=True)
+        last_err: OSError | None = None
+        # Keep DRM splash up; do not SystemExit after 2× EBUSY (that was the
+        # "crash then recover" — systemd RestartSec=5, console). Wait as long
+        # as a service restart would, in-process.
+        gaps = (0.0, 4.0, 5.0)
+        for i, gap in enumerate(gaps):
+            if gap:
+                time.sleep(gap)
             try:
-                self.rg.reinit(settle=0.3)
-                print("[*] gadget re-init as normal (awaiting AOA); "
-                      f"udc={_udc_state(self.rg.device)}", flush=True)
+                self.rg.reinit(settle=2.0)
+                print(
+                    f"[*] gadget re-init as normal (awaiting AOA); "
+                    f"udc={_udc_state(self.rg.device)} attempt={i + 1}",
+                    flush=True,
+                )
+                return
             except OSError as e:
-                print(f"[!] gadget re-init failed: {e} — process will exit for systemd restart",
-                      flush=True)
-                raise
+                last_err = e
+                retryable = e.errno in (errno.EBUSY, errno.EAGAIN, errno.ENODEV)
+                more = retryable and i < len(gaps) - 1
+                print(
+                    f"[!] gadget re-init attempt {i + 1} failed: {e}"
+                    f"{' — waiting, retry' if more else ''}",
+                    flush=True,
+                )
+                if not retryable:
+                    break
+        print(
+            f"[!] gadget re-init failed: {last_err} — process will exit for systemd restart",
+            flush=True,
+        )
+        raise last_err if last_err is not None else OSError("gadget re-init failed")
 
     def handle_control(self, data: bytes):
         ctrl = parse_ctrl(data)
@@ -2789,7 +2913,14 @@ class AccessorySession:
         Honors gold inter-packet gaps but caps long stalls so the burst finishes quickly.
         Returns the count of packets that TX'd ok. Bails early if we lose configuration.
         """
-        print(f"[*] replaying {label} ({len(app_seq)} pkts)", flush=True)
+        # Inter-packet gap cap: gold capture spans ~4.7s. Field default 0.08s
+        # (sleeps ~3.3s) is the proven arming cadence. 2026-08-30 tried 0.02s
+        # (~1.5s sleeps) to cut plug-in wait; 2026-08-31 eyes-on: goggles did
+        # not stay armed (8 never-ES re-arms in 70s → half-rate ES → USB
+        # SUSPEND). Keep 0.02 as an explicit opt-in. 0 = firehose.
+        gap_cap = _env_float("O3_ARM_GAP_CAP_S", 0.08)
+        print(f"[*] replaying {label} ({len(app_seq)} pkts, gap_cap={gap_cap:.3f}s)",
+              flush=True)
         prev = 0.0
         sent = 0
         for rel, tup in app_seq:
@@ -2797,21 +2928,24 @@ class AccessorySession:
                 break
             dt = rel - prev
             prev = rel
-            if dt > 0:
-                time.sleep(min(dt, 0.08))
+            if dt > 0 and gap_cap > 0:
+                time.sleep(min(dt, gap_cap))
             sent += self._send_app(*tup)
         print(f"[*] {label} done ({sent}/{len(app_seq)} pkts)", flush=True)
         return sent
 
     def maybe_request_video_rearm(self) -> None:
-        """Ask the seed thread to replay the arming burst when USB video-out has gone
-        silent but the AOA host (goggles) is still present — the air-unit hot-swap case.
+        """Ask the seed thread to replay the arming burst when USB video-out is silent
+        but the AOA host (goggles) is still present.
 
-        Fires only while there is NO live video (safe vs the 2026-07-14 re-arm-while-
-        streaming chop), only after we've actually streamed once this session, and only
-        when the host is proven alive (recent keepalive TX or bulk RX). If BOTH TX and RX
-        are long-dead it's a real/phantom unplug → left to that path. Re-asks every
-        O3_VIDEO_REARM_PERIOD_S while silent so a still-booting drone eventually catches.
+        Covers air-unit hot-swap (video flowed, drone power-cycled) AND cold
+        USB-first (goggles plugged, drone not on yet — ES never started). Fires
+        only while there is NO live video (safe vs the 2026-07-14 re-arm-while-
+        streaming chop), only after the initial gold burst has finished, and only
+        when the host is proven alive (recent keepalive TX or bulk RX). If BOTH TX
+        and RX are long-dead it's a real/phantom unplug → left to that path.
+        Re-asks every O3_VIDEO_REARM_PERIOD_S while silent so a still-booting
+        drone eventually catches.
         """
         if not self._video_rearm_enable:
             return
@@ -2819,22 +2953,45 @@ class AccessorySession:
             return
         if self._expect_reenum_bus_cycle or self._phantom_rearm_reason is not None:
             return
-        # Only after real video has flowed at least once this session.
-        if self._es_written <= 0 or self._es_last_grow_mono <= 0:
+        # SUSPEND usually means the cable is coming out. Do not fire APP_SEQ into
+        # a dying bus (2026-08-31 reconnect: re-arm 6s after SUSPEND, then
+        # DISCONNECT, then UDC EBUSY on re-init).
+        now_pre = time.monotonic()
+        if self._last_suspend_mono and (now_pre - self._last_suspend_mono) < 15.0:
+            return
+        # Initial gold burst must have finished (don't hammer APP_SEQ during it).
+        # After that, re-arm even if video has NEVER flowed this session: USB
+        # plugged, drone still off (owner 2026-08-30). Previously required
+        # `_es_written > 0`, which meant "plug goggles first, power drone later"
+        # from cold boot never re-subscribed USB video-out.
+        if not self._initial_arm_done:
             return
         now = time.monotonic()
-        silent = now - self._es_last_grow_mono
+        never_es = self._es_written == 0
+        if self._es_last_grow_mono > 0:
+            silent = now - self._es_last_grow_mono
+        else:
+            silent = now - (self._initial_arm_mono or now)
         # If the stream RESPONDED to our most recent re-arm (ES grew after we asked), be
         # patient: give the presenter a long, quiet window to cold-start and lock onto the
         # resumed stream. Re-arming again now is exactly what destabilised the goggles'
         # encoder in the field (bursty garbage → presenter never locks → USB SUSPEND). Only
-        # re-arm again if the stream stays TRULY dead for the full settle window. If it never
-        # responded (drone still booting), keep the shorter detection threshold + cadence.
+        # re-arm again if the stream stays TRULY dead for the full settle window.
         responded = (
             self._video_rearm_last_mono > 0
             and self._es_last_grow_mono > self._video_rearm_last_mono
         )
-        threshold = self._video_rearm_settle_s if responded else self._video_silence_s
+        # Never-ES (USB first, drone later): still re-arm so a late air-unit
+        # power-on subscribes USB video-out, but do NOT use the 6s/8s hot-swap
+        # cadence. 2026-08-31: eight 0.02s APP_SEQ bursts in 70s with no ES
+        # reset the encoder and ended in USB SUSPEND. Wait a full settle
+        # window after gold and between attempts.
+        if never_es:
+            threshold = self._video_rearm_settle_s
+            period = self._video_rearm_settle_s
+        else:
+            threshold = self._video_rearm_settle_s if responded else self._video_silence_s
+            period = self._video_rearm_period_s
         if silent < threshold:
             return
         # Host must still be present (AOA up): keepalive TX still succeeding, or recent RX.
@@ -2849,13 +3006,18 @@ class AccessorySession:
         # hammer — that resets the encoder and eventually forces a USB SUSPEND).
         if self._video_rearm_last_mono and (
             now - self._video_rearm_last_mono
-        ) < self._video_rearm_period_s:
+        ) < period:
             return
         self._video_rearm_last_mono = now
+        if never_es:
+            why = "never-ES settle"
+        elif responded:
+            why = "post-resume settle expired"
+        else:
+            why = "no resume yet"
         print(
             f"[*] video silent {silent:.0f}s, AOA host alive (tx_ok={self._tx_ok}) — "
-            f"video re-arm (hot-swap; "
-            f"{'post-resume settle expired' if responded else 'no resume yet'})",
+            f"video re-arm (hot-swap; {why})",
             flush=True,
         )
         # Rebuild the deframer before the resumed stream is parsed (drop the stale
@@ -2883,6 +3045,8 @@ class AccessorySession:
                 APP_SEQ, SUSTAIN_SEQ = self._fallback_seq()
 
             self._replay_arm(APP_SEQ, "gold app→goggles arming burst")
+            self._initial_arm_done = True
+            self._initial_arm_mono = time.monotonic()
             print(
                 f"[*] gold arm done — sustaining with light keepalives "
                 f"({len(SUSTAIN_SEQ)} pkts / ~1s)",
@@ -3254,8 +3418,10 @@ def main():
                 # Often precedes a silent unplug that never delivers DISCONNECT.
                 print("[*] event SUSPEND", flush=True)
                 sess.log("host suspend")
+                sess._last_suspend_mono = time.monotonic()
             elif typ == USB_RAW_EVENT_RESUME:
                 print("[*] event RESUME", flush=True)
+                sess._last_suspend_mono = 0.0
                 sess._touch_host("ep0")
             else:
                 sess.log(f"event type={typ} len={len(data)}")

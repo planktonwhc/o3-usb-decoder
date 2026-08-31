@@ -11,10 +11,13 @@
 #   journalctl -u o3-hdmi -f
 #   scripts/event_health.sh --preflight
 #   sudo scripts/o3_hdmi_safe_stop.sh --restart   # clear phantom UDC + restart
+#   scripts/o3_host_probe.sh                      # multi-signal host presence
 #   sudo scripts/o3_soak.sh                       # 2h soak (optional)
 #
-# Gotcha #4: don't tear down raw-gadget while a *real* USB host is attached.
-# UDC state=configured alone is NOT proof of a host (phantom after unplug is common).
+# Gotcha #4: don't tear down raw-gadget while a *real* USB host is attached
+# (live au_feed / ES). UDC state=configured alone is NOT proof of a host —
+# phantom after unplug is common. Always restart via o3_hdmi_safe_stop.sh
+# (runs o3_host_probe.sh); never gate solely on UDC sysfs.
 #
 # Power-cycle usage:
 #   - Pi power on  → service starts, waits for goggles
@@ -54,6 +57,8 @@ fi
 chmod +x \
   "$REPO/scripts/o3_hdmi_run.sh" \
   "$REPO/scripts/o3_hdmi_safe_stop.sh" \
+  "$REPO/scripts/o3_host_probe.sh" \
+  "$REPO/scripts/restart_o3_hdmi.sh" \
   "$REPO/scripts/o3_oops_watchdog.sh" \
   "$REPO/scripts/event_health.sh" \
   "$REPO/scripts/o3_soak.sh" \
@@ -73,8 +78,12 @@ install_unit() {
 
 if [ "$DO_DISABLE" -eq 1 ]; then
   echo "== disable o3-hdmi + o3-oops-watchdog =="
-  # UDC=configured is often a *phantom* after unplug — use safe_stop, don't hard-refuse.
-  if [ -r /sys/class/udc/fe980000.usb/state ]; then
+  # Multi-signal probe: never hard-refuse on UDC alone. safe_stop refuses only
+  # on LIVE_HOST (au_feed/ES); phantom udc=configured is SAFE_STOP.
+  if [ -x "$REPO/scripts/o3_host_probe.sh" ]; then
+    echo "   host probe:"
+    "$REPO/scripts/o3_host_probe.sh" || true
+  elif [ -r /sys/class/udc/fe980000.usb/state ]; then
     st="$(cat /sys/class/udc/fe980000.usb/state 2>/dev/null || true)"
     if [ "$st" = "configured" ]; then
       echo "!! UDC is 'configured' (may be phantom — does not prove goggles are plugged)."
@@ -82,7 +91,14 @@ if [ "$DO_DISABLE" -eq 1 ]; then
     fi
   fi
   if [ -x "$REPO/scripts/o3_hdmi_safe_stop.sh" ]; then
-    "$REPO/scripts/o3_hdmi_safe_stop.sh" || true
+    # --force on disable only if probe would block forever mid-event; default path
+    # already allows phantom. If LIVE_HOST, operator must unplug or pass force.
+    if ! "$REPO/scripts/o3_hdmi_safe_stop.sh"; then
+      echo "!! safe_stop refused (LIVE_HOST). Unplug goggles, or:" >&2
+      echo "   sudo $REPO/scripts/o3_hdmi_safe_stop.sh --force" >&2
+      echo "   then re-run: sudo $0 --disable" >&2
+      exit 1
+    fi
   else
     systemctl stop o3-hdmi 2>/dev/null || true
   fi
@@ -197,11 +213,15 @@ if [ -f "$WD_DST" ]; then
   systemctl enable o3-oops-watchdog.service
   echo "   o3-oops-watchdog enabled (auto-reboot on raw_gadget wedge)"
 fi
-echo "   DRM_CONNECTOR=${DRM_CONNECTOR:-HDMI-A-2}  player=atomic  dual=parked  idle_splash=1"
+echo "   DRM_CONNECTOR=${DRM_CONNECTOR:-auto}  player=atomic  dual=1  idle_splash=1"
 
 if [ "$DO_START" -eq 1 ]; then
-  # Always go through safe_stop: clears phantom UDC=configured, reaps leftover
-  # endpoint/player, then we start clean. Do not refuse solely on UDC state.
+  # Always go through safe_stop + host probe: clears phantom UDC=configured,
+  # reaps leftover endpoint/player, then start clean. Never refuse solely on UDC.
+  if [ -x "$REPO/scripts/o3_host_probe.sh" ]; then
+    echo "== pre-start host probe =="
+    "$REPO/scripts/o3_host_probe.sh" || true
+  fi
   if [ -r /sys/class/udc/fe980000.usb/state ]; then
     st="$(cat /sys/class/udc/fe980000.usb/state 2>/dev/null || true)"
     if [ "$st" = "configured" ]; then
@@ -209,7 +229,12 @@ if [ "$DO_START" -eq 1 ]; then
     fi
   fi
   if [ -x "$REPO/scripts/o3_hdmi_safe_stop.sh" ]; then
-    "$REPO/scripts/o3_hdmi_safe_stop.sh" || true
+    if ! "$REPO/scripts/o3_hdmi_safe_stop.sh"; then
+      echo "!! safe_stop refused (LIVE_HOST — goggles streaming)." >&2
+      echo "   Unplug goggles, then re-run install; or emergency:" >&2
+      echo "   sudo $REPO/scripts/o3_hdmi_safe_stop.sh --force && sudo systemctl start o3-hdmi" >&2
+      exit 1
+    fi
   else
     systemctl stop o3-hdmi 2>/dev/null || true
     pkill -9 -f 'poc/pi_endpoint/raw_endpoint.py|phaseB_standalone' 2>/dev/null || true
@@ -228,14 +253,16 @@ if [ "$DO_START" -eq 1 ]; then
   echo "   journal:   journalctl -u o3-hdmi -f"
   echo "   watchdog:  journalctl -u o3-oops-watchdog -f"
   echo "   preflight: $REPO/scripts/event_health.sh --preflight"
+  echo "   host:      $REPO/scripts/o3_host_probe.sh"
   echo "   soak 2h:   sudo $REPO/scripts/o3_soak.sh"
-  echo "   HDMI: far micro-HDMI (HDMI-A-2); dual parked"
+  echo "   HDMI: dual atomic default (both micro-HDMI); single: O3_DUAL_HDMI=0 + HDMI-A-2"
   echo "   plug goggles (VBUS-isolated USB-C) when air unit shows live video"
-  echo "   stuck udc=configured with goggles unplugged:"
+  echo "   restart / stuck udc=configured (goggles unplugged or phantom):"
   echo "     sudo $REPO/scripts/o3_hdmi_safe_stop.sh --restart"
+  echo "   never: systemctl restart o3-hdmi gated only on udc=configured"
 else
   echo "installed + enabled (not started)."
-  echo "   start:  sudo systemctl start o3-hdmi o3-oops-watchdog"
-  echo "   or:     sudo $REPO/scripts/o3_hdmi_safe_stop.sh --restart"
+  echo "   start:  sudo $REPO/scripts/o3_hdmi_safe_stop.sh --restart"
   echo "           sudo systemctl start o3-oops-watchdog"
+  echo "   probe:  $REPO/scripts/o3_host_probe.sh"
 fi

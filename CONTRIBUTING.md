@@ -22,14 +22,15 @@ Thanks for helping turn this into the open “voc-poc for O3.”
   targets other people’s devices without consent.
 - Drive-by re-enable of **mpv** as the field default (atomic-KMS is shipping;
   see project history).
-- Re-enabling dual HDMI in the boot unit without following
-  `docs/DUAL_HDMI_PARKED.md`.
+- Turning dual HDMI off in the boot unit without a reason (it is the shipping
+  default; single-port override is in `docs/DUAL_HDMI_PARKED.md`).
 
 ## How to develop
 
 1. Prefer a **Pi 4** with the same power/VBUS rules as the README.
 2. Never stop `o3-hdmi` / raw-gadget while goggles are still plugged
-   (gotcha #4). Use `scripts/o3_hdmi_safe_stop.sh` after unplug.
+   (gotcha #4). Use `scripts/o3_hdmi_safe_stop.sh` (runs multi-signal host
+   probe — never refuse solely on `udc=configured`; phantom after unplug is common).
 3. Measure before changing player defaults: content is often ~50 AU/s, not 60.
 4. Do not leak compressed H.264 (drop decoded frames only if you must drop).
 5. Patch **every** SPS level if you touch level rewriting, not only the first.

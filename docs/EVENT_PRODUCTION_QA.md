@@ -6,7 +6,7 @@
 successful bench/field unit from a box you can leave unattended next to a
 projector for a full day.
 
-Source of truth for current behavior: `CLAUDE.md`, `docs/GROK_STATE.md`.
+Source of truth for current behavior: `README.md`, `docs/SUPPORTED_HARDWARE.md`.
 Operator card: `docs/FIELD_TEST_CARD.md`.
 
 ---
@@ -18,7 +18,7 @@ Operator card: `docs/FIELD_TEST_CARD.md`.
 | Phone-free live path | AOA raw-gadget + gold arm + sustain |
 | Smooth presentation | Atomic present-per-frame ~50 fps, owner-confirmed |
 | Correct color | SW `avdec_h264` after HW chroma bug |
-| Odd aspect ratios | Letterbox/pillarbox onto fixed DRM canvas |
+| Odd aspect ratios | Default crop-to-fill 16:9 (`O3_HDMI_ASPECT=crop`); `letterbox` = full FOV + bars |
 | Boot-to-video | `o3-hdmi` systemd, waits for plug |
 | Safe deploy workflow | `push_to_pi.sh` + `install_hdmi_service.sh` + safe_stop |
 | Documented gotchas | VBUS isolate, gotcha #4, undervoltage |
@@ -34,10 +34,9 @@ you are largely there.
 
 These are the failure modes that turn a “great feed” into a dead wall for minutes.
 
-0. **Air-unit / battery hot-swap with goggles still on Pi** — **OPEN (owner fail 2026-07-16)**  
-   - Symptom: drone power off → HDMI black; drone power on → **goggles FPV OK, HDMI stays black**.  
-   - Must recover without unplugging goggles or restarting the service (event battery changes).  
-   - See diagnosis + acceptance in `docs/SESSION_CLOSE_2026-07-16_event_ops_git.md`.
+0. **Air-unit / battery hot-swap with goggles still on Pi** — **DONE** (owner-confirmed 2026-07-16; reconfirmed 2026-08-31).  
+   - Drone power off → HDMI idle splash; drone power on → HDMI re-arms in-process.  
+   - See `docs/SESSION_CLOSE_2026-07-16_hotswap_rearm.md`.
 
 1. **Kernel oops auto-recovery (raw_gadget / dwc2 race)** — **mitigated (watchdog deployed)**  
    - Symptom: goggles blip or unlucky phantom re-arm → `raw_gadget.ko` NULL deref →
@@ -49,10 +48,13 @@ These are the failure modes that turn a “great feed” into a dead wall for mi
    - `scripts/event_health.sh --preflight` — service, throttle, EDID, deps, D-state.  
    - Prove GREEN on booth setup each event day.
 
-3. **Operator-proof stop/start**  
-   - Today: wrong `systemctl stop` with goggles attached can wedge the UDC.  
-   - **QA ask:** safe_stop as the only advertised path; optional “refuse stop if
-     host traffic recent” guard; laminated card + systemd `ExecStop` that warns.
+3. **Operator-proof stop/start** — **DONE (2026-07-16 phantom UDC probe)**  
+   - Wrong `systemctl stop` under a *live* host can still wedge the UDC (gotcha #4).  
+   - **Shipped:** `scripts/o3_host_probe.sh` multi-signal probe; `o3_hdmi_safe_stop.sh`
+     refuses only on LIVE_HOST (`au_feed`/ES), never on `udc=configured` alone.
+     Wired into install + `event_health.sh`. See
+     `docs/SESSION_CLOSE_2026-07-16_phantom_udc_probe.md`.  
+   - Optional later: systemd `ExecStop` wrapper that always calls safe_stop.
 
 4. **Power integrity**  
    - Undervoltage wedges the gadget. For events: dedicated 5 V supply (or PoE
@@ -91,7 +93,7 @@ These are the failure modes that turn a “great feed” into a dead wall for mi
 
 10. **Known resolution modes**  
     - Handle 1920×1080 and 1440×1080 already. Document or probe other FOV/aspect
-      modes the goggles may emit; keep letterbox path. Root-cause 4:3 switch if
+      modes the goggles may emit; keep fixed-canvas crop/letterbox path. Root-cause 4:3 switch if
       event organizers care about exact framing.
 
 11. **Dual HDMI (only if the venue needs two outputs)**  

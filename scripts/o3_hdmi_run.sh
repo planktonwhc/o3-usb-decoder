@@ -12,7 +12,7 @@ REPO="${O3_REPO:-/home/pi/o3test}"
 UDC="${UDC:-fe980000.usb}"
 DRM_DEVICE="${DRM_DEVICE:-/dev/dri/card1}"
 # Field default: far micro-HDMI only (atomic presenter). Dual is parked.
-DRM_CONNECTOR="${DRM_CONNECTOR:-HDMI-A-2}"
+DRM_CONNECTOR="${DRM_CONNECTOR:-auto}"
 PY="${O3_PYTHON:-/usr/bin/python3}"
 ENDPOINT="$REPO/poc/pi_endpoint/raw_endpoint.py"
 
@@ -54,7 +54,16 @@ pkill -x gst-launch-1.0 2>/dev/null || true
 # --- undervoltage heads-up (does not abort; gadget is fragile when throttled) -
 if command -v vcgencmd >/dev/null 2>&1; then
   thr="$(vcgencmd get_throttled 2>/dev/null || true)"
-  log "preflight $thr  udc=$(cat /sys/class/udc/$UDC/state 2>/dev/null || echo '?')  drm=$DRM_DEVICE connector=$DRM_CONNECTOR"
+  arm_hz="$(vcgencmd measure_clock arm 2>/dev/null || true)"
+  log "preflight $thr  $arm_hz  udc=$(cat /sys/class/udc/$UDC/state 2>/dev/null || echo '?')  drm=$DRM_DEVICE connector=$DRM_CONNECTOR"
+  # Current flags live in the low nibble (bit0 under-voltage, bit2 throttled).
+  # 0x50000 is historical only; 0x50005 is starving NOW. SW decode + dwc2 both
+  # fall apart at 600 MHz (2026-08-31: seconds of HDMI lag, USB SUSPEND).
+  low="${thr##*x}"
+  case "${low: -1}" in
+    0) ;;
+    *) log "WARN under-voltage/throttle active — use a stiffer 5V supply (GPIO/PoE, not the USB-C data port)" ;;
+  esac
 fi
 
 # Log which HDMI ports look connected right now (player also hotplug-tracks).
@@ -85,7 +94,7 @@ fi
 log "starting endpoint (hdmi-only, AOA handshake → 2d01, connector=$DRM_CONNECTOR)"
 # --out '' = no recording (HDMI-only). Endpoint reconnects on goggles unplug/replug
 # without exiting; non-zero exit → systemd Restart=on-failure.
-# Dual HDMI is parked (docs/DUAL_HDMI_PARKED.md). Service sets O3_DUAL_HDMI=0.
+# Dual atomic default: O3_DUAL_HDMI=1 + DRM_CONNECTOR=auto (both micro-HDMI).
 exec "$PY" "$ENDPOINT" \
   --driver="$UDC" \
   --device="$UDC" \
